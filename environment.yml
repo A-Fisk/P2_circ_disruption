@@ -1,0 +1,5 @@
+name: P2_circ_disruption_environment 
+
+dependencies:
+- numpy == 1.15
+- pandas == 0.23.3
