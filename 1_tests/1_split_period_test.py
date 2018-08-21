@@ -17,4 +17,5 @@ test_data = pd.read_csv(file_path,
 
 split_data = library.split_data_by_period(test_data, 1)
 
-print(split_data.head())
+print(split_data.head(), split_data.name)
+

@@ -54,8 +54,6 @@ def sleep_create_file(file_path, index_col=0):
 
     sleep_df.to_csv(new_file_name)
 
-
-
 ######################################################################
 # Generally useful functions for pre-processing data
 
@@ -131,7 +129,8 @@ def split_data_by_period(data, animal_number, period=None):
     :param data: time indexed pandas dataframe
     :param animal_number: column which will be selected to split
     :param period: period to be split by, in the format of "%H %T" - Default = 24H 0T
-    :return: Dataframe indexed by the first day, with each column being subsequent day, for a single column
+    :return: Dataframe Indexed by real time through the period, with each column being subsequent period, for a single
+    column
     """
 
     if not period:
@@ -140,7 +139,8 @@ def split_data_by_period(data, animal_number, period=None):
 
     # Create index to slice by
     # Slice by the consecutive days
-    # concatenate the list together
+    # concatenate the list together into a new dataframe
+    # use a new index for the new dataframe
 
     start, end = data.index[0], data.index[-1]
 
@@ -150,7 +150,7 @@ def split_data_by_period(data, animal_number, period=None):
 
     animal_label = data.columns[animal_number]
 
-    for day_start, day_end in zip(list_of_days_index, list_of_days_index[1:]):
+    for day_start, day_end in zip(list_of_days_index[:-1], list_of_days_index[1:]):
 
         day_data = data.loc[day_start:day_end, animal_label]
 
@@ -164,6 +164,43 @@ def split_data_by_period(data, animal_number, period=None):
 
     data_by_day_list.append(final_day_data)
 
-    split_dataframe = pd.DataFrame(data_by_day_list)
+    # before putting into large dataframe, need to alter the index
+
+    values_by_day_list = []
+
+    for day in data_by_day_list:
+
+        values = day.reset_index().iloc[:,1]
+
+        values_by_day_list.append(values)
+
+    split_dataframe = pd.concat(values_by_day_list,
+                                axis=1)
+
+    # Now to create new index for the dataframe
+
+    old_frequency_seconds = 86400 / len(split_dataframe)
+
+    int_seconds = int(old_frequency_seconds)
+
+    miliseconds = round((old_frequency_seconds - int_seconds) * 1000)
+
+    new_index_frequency = str(int_seconds) + "S " + str(miliseconds) + "ms"
+
+    new_index = pd.timedelta_range(start = '0S',
+                                   freq=new_index_frequency,
+                                   periods=len(split_dataframe))
+
+    split_dataframe.index=new_index
+
+    # Now to set the column numbers to be subsequent days
+
+    days = len(values_by_day_list)
+
+    split_dataframe.columns = range(days)
+
+    # Now set the name of dataframe to be PIR name
+
+    split_dataframe.name = animal_label
 
     return split_dataframe
