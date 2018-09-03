@@ -3,7 +3,7 @@
 import unittest
 import numpy as np
 import pandas as pd
-import _3_sleep_analyse
+import L3_sleep_analyse
 
 # test sleep processing
 
@@ -26,7 +26,7 @@ class test_sleep_processing(unittest.TestCase):
     def test_sleep_processing(self):
         # test whether picks up correct number of sleep episodes
 
-        sleep_scored_data = _3_sleep_analyse.sleep_process(self.test_data_series)
+        sleep_scored_data = L3_sleep_analyse.sleep_process(self.test_data_series)
 
         sleep_scored_sum = sleep_scored_data.sum()
 

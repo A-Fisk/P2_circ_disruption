@@ -3,7 +3,7 @@
 import unittest
 import numpy as np
 import pandas as pd
-import _1_preprocessing
+import L1_preprocessing
 
 # define my test class
 
@@ -51,7 +51,7 @@ class tests_preprocessing(unittest.TestCase):
     # first test for remove_object_col function
     def test_remove_object_col_function(self):
 
-        removed_col_data = _1_preprocessing.remove_object_col(self.test_data_df)
+        removed_col_data = L1_preprocessing.remove_object_col(self.test_data_df)
 
         number_remaining_columns = len(removed_col_data.columns)
 
