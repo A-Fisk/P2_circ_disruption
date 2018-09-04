@@ -2,6 +2,8 @@
 
 import pandas as pd
 import pathlib
+import sys
+sys.path.append('..')
 from A2_analysis_library.L1_preprocessing import remove_object_col
 
 def sleep_process(data, window=4):
@@ -68,3 +70,86 @@ def sleep_create_file(file_path, index_col=0):
     # return columns so can print them as a progress indicator
 
     return columns
+
+# Function to get hourly sum of sleep data
+def create_hourly_sum(data, index_col=-1):
+    """
+    function that takes in a datetimeindex indexed pandas dataframe of PIR sleep scored data
+    Returns as resampled into hourly bins, including the labels
+
+    :param data:
+    :param index_col:
+    :return:
+    """
+
+    # resample the data with sum method
+    # resample the index column with the first method
+    # add index col back into the summed df
+    # return the df
+
+    df_hourly_sum = data.resample("H").sum()
+
+    df_start = data.resample("H").first()
+
+    # grab the column name from the original dataframe to put in the hourly sum
+
+    col_name = data.iloc[:, index_col].name
+
+    df_hourly_sum[col_name] = df_start.iloc[:, index_col]
+
+    return df_hourly_sum
+
+# Function to save the csv to a specified directory
+def save_sleep_csv_file(data, destination_dir, file_name):
+    """
+    Function to save the dataframe as a csv in the specified directory
+    :param data:
+    :param destination_dir:
+    :param file_name:
+    :return:
+    """
+
+    # Define where to put the file and the file name then save the file there
+
+    destination_directory = destination_dir
+
+    file_name_to_use = file_name
+
+    destination = pathlib.Path(destination_directory, file_name_to_use)
+
+    data.to_csv(destination)
+
+# Function to pipeline the creating of the hourly sum then saving it to a specified directory
+def hourly_sleep_save_file_pipeline(read_file_name, destination_dir):
+    """
+    Function to read the sleep file from the directory, process it into hourly sum, and then save it in specified
+    directory
+
+    :param read_file_name:
+    :param destination_dir:
+    :param save_file_name:
+    :return:
+    """
+
+    # Read the file in as a dataframe
+    # process it for hourly sum
+    # create save file_name and destination
+    # save it there
+
+    # read file
+
+    data = pd.read_csv(read_file_name,
+                       index_col=0,
+                       parse_dates=True)
+
+    # process it for hourly sum
+
+    data_hourly = create_hourly_sum(data)
+
+    # create name and save
+
+    file_name_only = read_file_name.parts[-1]
+
+    save_sleep_csv_file(data_hourly, destination_dir, file_name_only)
+
+

@@ -3,11 +3,14 @@
 import unittest
 import numpy as np
 import pandas as pd
+import sys
+sys.path.append('.')
 import L3_sleep_analyse
 
 # test sleep processing
 
-class test_sleep_processing(unittest.TestCase):
+
+class testSleepProcessing(unittest.TestCase):
 
     def setUp(self):
         # generate data for sleep processing
