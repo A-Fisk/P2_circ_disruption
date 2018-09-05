@@ -27,7 +27,7 @@ file_list_names = []
 
 for file in file_list:
 
-    temp_file_name = file.parts[-1][:-4] + ".png"
+    temp_file_name = file.name + ".png"
 
     file_list_names.append(temp_file_name)
 

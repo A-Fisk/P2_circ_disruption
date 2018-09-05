@@ -1,3 +1,4 @@
+import pandas as pd
 
 # This script contains functions which are useful for preprocessing of PIR data
 
@@ -67,4 +68,22 @@ def separate_by_condition(data, label_col=-1):
 
     return list_of_dataframes_by_condition
 
+# Function to read files in as a pandas dataframe in standard way
+def read_file_to_df(file_name):
+    """
+    function to take given csv file name and turn it into a df
+    :param file_name:
+    :return:
+    """
 
+    # quick error handling to see if is a csv file
+
+    if file_name.suffix != ".csv":
+
+        raise ValueError("Not a csv file")
+
+    df = pd.read_csv(file_name,
+                     index_col=0,
+                     parse_dates=True)
+
+    return df

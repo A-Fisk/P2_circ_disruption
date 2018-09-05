@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import pathlib
 import sys
 sys.path.append('..')
-from A2_analysis_library.L1_preprocessing import remove_object_col
+from A2_analysis_library.L1_preprocessing import remove_object_col, read_file_to_df
 
 def sleep_process(data, window=4):
     """
@@ -72,6 +72,68 @@ def sleep_create_file(file_path, index_col=0):
     # return columns so can print them as a progress indicator
 
     return columns
+
+# Function to glob all the files in a directory, create new directory, and save all files in there with same name but
+#  additional suffix.
+def process_all_files_in_dir(input_directory, function_name, save_suffix, subdir_name, search_suffix=".csv"):
+    """
+    Function to take the directory given, glob all the files in that directory, apply the given function to them and
+    save the output into a subdirectory
+    :param directory:
+    :param function_name:
+    :param suffix:
+    :return:
+    """
+
+    # glob all the files in the directory
+    # read the files into a df
+    # apply function to the dfs
+    # create subdirectory
+    # save df in that directory
+
+    # glob files in directory
+
+    file_list = list(input_directory.glob("*" + search_suffix))
+
+    # read files into dfs
+
+    df_list = []
+
+    for file in file_list:
+
+        print(file.suffix == ".csv")
+
+        temp_df = read_file_to_df(file)
+
+        df_list.append(temp_df)
+
+    # apply function to the dfs
+
+    processed_list = []
+
+    for df in df_list:
+
+        temp_output = function_name(df)
+
+        processed_list.append(temp_output)
+
+    # create subdirectory
+
+    sub_dir_path = input_directory / subdir_name
+
+    if not sub_dir_path.exists():
+
+        sub_dir_path.mkdir()
+
+    # save the files in that subdir
+
+    for df, file in zip(processed_list, file_list):
+
+        file_name_path = sub_dir_path + file.stem + save_suffix
+
+        print(file_name_path)
+
+        df.to_csv(file_name_path)
 
 # Function to get hourly sum of sleep data
 def create_hourly_sum(data, index_col=-1):
@@ -150,7 +212,7 @@ def hourly_sleep_save_file_pipeline(read_file_name, destination_dir):
 
     # create name and save
 
-    file_name_only = read_file_name.parts[-1]
+    file_name_only = read_file_name.name
 
     save_sleep_csv_file(data_hourly, destination_dir, file_name_only)
 
