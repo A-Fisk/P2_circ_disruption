@@ -1,6 +1,8 @@
 # Script to define functions for analysing sleep
 
 import pandas as pd
+import matplotlib
+import matplotlib.pyplot as plt
 import pathlib
 import sys
 sys.path.append('..')
@@ -152,4 +154,38 @@ def hourly_sleep_save_file_pipeline(read_file_name, destination_dir):
 
     save_sleep_csv_file(data_hourly, destination_dir, file_name_only)
 
+# Function to plot data and save to file
+def simple_plot(data, destination_dir='.', file_name="test.svg", savefig=False, showfig=True):
+    """
+    Function take in pandas dataframe, plot it as subplots, and then save to specified place
+    :param data:
+    :param destination_dir:
+    :param file_name:
+    :return:
+    """
 
+    # create the destination to save as
+
+    destination_directory = destination_dir
+
+    file_name_to_use = file_name
+
+    destination = pathlib.Path(destination_directory, file_name_to_use)
+
+    # plot the file
+
+    no_rows = len(data.columns)
+
+    fig, ax = plt.subplots(nrows=no_rows, sharey=True)
+
+    for axis, col in enumerate(data.columns):
+
+        ax[axis].plot(data[col])
+
+    if showfig:
+
+        plt.show()
+
+    if savefig:
+
+        plt.savefig(destination, dpi=500)
