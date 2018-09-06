@@ -25,37 +25,26 @@ def sleep_process(data, window=4):
     return scored_data.astype(int)
 
 # Function to take input file name and save sleep_df in the same directory
-def sleep_create_file(file_path, index_col=0):
+def sleep_create_df(data):
     """
-    Function to process a csv and save a sleep scored csv in the same directory
+    Function to take dataframe as input, remove object columns, sleep process the rest, then reattach the object
+    columns, returns final df
 
-    :param file_path: string - path to file name
-    :param index_col: int - column to use to create index in read_csv
+    :param data
     """
 
-    # grab the directory from the file name
-    # read the file as a dataframe
     # remove object columns and save them
     # perform the sleep_processing
     # add object columns back in
-    # save the sleep dataframe as a new csv in the directory
-
-    path = pathlib.Path(file_path)
-
-    directory = path.parent
-
-    old_file_name = path.name
-
-    data = pd.read_csv(file_path,
-                       index_col=index_col)
+    # return df
 
     # remove object columns
 
-    data, columns = remove_object_col(data, return_cols=True)
+    df_1, columns = remove_object_col(data, return_cols=True)
 
     # sleep process the data
 
-    sleep_df = sleep_process(data)
+    sleep_df = sleep_process(df_1)
 
     # add object columns back in
 
@@ -63,15 +52,9 @@ def sleep_create_file(file_path, index_col=0):
 
         sleep_df[col.name] = col
 
-    # save as new df
+    # return df
 
-    new_file_name = directory.joinpath(old_file_name[:-4] + "_sleep_.csv")
-
-    sleep_df.to_csv(new_file_name)
-
-    # return columns so can print them as a progress indicator
-
-    return columns
+    return sleep_df
 
 # Function to glob all the files in a directory, create new directory, and save all files in there with same name but
 #  additional suffix.
@@ -101,8 +84,6 @@ def process_all_files_in_dir(input_directory, function_name, save_suffix, subdir
 
     for file in file_list:
 
-        print(file.suffix == ".csv")
-
         temp_df = read_file_to_df(file)
 
         df_list.append(temp_df)
@@ -129,9 +110,7 @@ def process_all_files_in_dir(input_directory, function_name, save_suffix, subdir
 
     for df, file in zip(processed_list, file_list):
 
-        file_name_path = sub_dir_path + file.stem + save_suffix
-
-        print(file_name_path)
+        file_name_path = sub_dir_path / (file.stem + save_suffix)
 
         df.to_csv(file_name_path)
 
