@@ -1,30 +1,19 @@
-import pandas as pd
 import sys
 import pathlib
-import os
 sys.path.append(pathlib.Path("..","..",'A2_analysis_library', '.'))
-from A2_analysis_library.L3_sleep_analyse import hourly_sleep_save_file_pipeline
+from A2_analysis_library.L3_sleep_analyse import process_all_files_in_dir, create_hourly_sum
 
+# define input director
+# define subdir name
+# define save suffix
 
-# glob all the files we want
-# define the output directory
-# put through pipeline
+input_dir = pathlib.Path("/Users/angusfisk/Documents/01_PhD_files/01_projects/P2_Circ_Disruption_paper_chapt2/03_data_files/01_sleep_csvs")
 
-# can update to be part of pipeline later
+save_suffix = '_hourly.csv'
 
-# glob the files
+subdir_name = "01_hourly_sum"
 
-file_dir_string = "/Users/angusfisk/Documents/_deprec_PHD_Data/Experiment_Data/Rough/"
-
-file_directory = pathlib.Path(file_dir_string)
-
-file_list = list(file_directory.glob("**/*sleep_.csv"))
-
-# define output directory
-
-output_dir = pathlib.Path("/Users/angusfisk/Documents/1_PhD_files/1_Projects/P2_Circ_Disruption_paper_chapt2"
-                          "/2_analysis_outputs/1_sleep_hourly/")
-
-for read_file, save_file in zip(file_list, output_names):
-
-    hourly_sleep_save_file_pipeline(read_file, output_dir)
+process_all_files_in_dir(input_directory=input_dir,
+                         function_name=create_hourly_sum,
+                         save_suffix=save_suffix,
+                         subdir_name=subdir_name)

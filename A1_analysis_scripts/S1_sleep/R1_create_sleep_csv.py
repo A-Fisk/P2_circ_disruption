@@ -10,7 +10,7 @@ input_dir = pathlib.Path("/Users/angusfisk/Documents/01_PhD_files/01_Projects/P2
 
 save_suffix = "_sleep.csv"
 
-subdir_name = "sleep_csvs"
+subdir_name = "01_sleep_csvs"
 
 process_all_files_in_dir(input_directory=input_dir,
                          function_name = sleep_create_df,

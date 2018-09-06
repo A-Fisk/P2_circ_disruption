@@ -1,37 +1,25 @@
 import pandas as pd
 import sys
 import pathlib
-import os
 sys.path.append(pathlib.Path("..","..",'A2_analysis_library', '.'))
-from A2_analysis_library.L3_sleep_analyse import simple_plot
+from A2_analysis_library.L3_sleep_analyse import simple_plot, process_all_files_in_dir
 
-file_directory = pathlib.Path("/Users/angusfisk/Documents/1_PhD_files/1_Projects/P2_Circ_Disruption_paper_chapt2"
-                          "/2_analysis_outputs/1_sleep_hourly/")
+# define input dir
+# define save suffix
+# define subdir
 
-file_list = list(file_directory.glob("**/*sleep_.csv"))
+input_dir = pathlib.Path("/Users/angusfisk/Documents/01_PhD_files/01_projects/P2_Circ_Disruption_paper_chapt2/03_data_files/01_sleep_csvs/01_hourly_sum")
 
-# define output directory
+save_suffix = "plot.png"
 
-output_dir = pathlib.Path("/Users/angusfisk/Documents/1_PhD_files/1_Projects/P2_Circ_Disruption_paper_chapt2"
-                          "/2_analysis_outputs/1_sleep_hourly/1_plots/")
+subdir_name = "01_plots"
 
-data_list = []
+process_all_files_in_dir(input_directory=input_dir,
+                         function_name=simple_plot())
 
-for file in file_list:
 
-    df = pd.read_csv(file, index_col=0, parse_dates=True)
-
-    data_list.append(df)
-
-file_list_names = []
-
-for file in file_list:
-
-    temp_file_name = file.name + ".png"
-
-    file_list_names.append(temp_file_name)
-
-for df, file_name in zip(data_list, file_list_names):
-
-    simple_plot(df, destination_dir = output_dir, file_name = file_name, savefig=True, showfig=False)
-
+# TODO create function to create save file name/path given name and suffix
+# TODO create function to save csv file
+# TODO create function to save plots
+# TODO update process all files function to be able to call save plots and save csvs
+# TODO update process all files function to accept **kwargs

@@ -142,26 +142,6 @@ def create_hourly_sum(data, index_col=-1):
 
     return df_hourly_sum
 
-# Function to save the csv to a specified directory
-def save_sleep_csv_file(data, destination_dir, file_name):
-    """
-    Function to save the dataframe as a csv in the specified directory
-    :param data:
-    :param destination_dir:
-    :param file_name:
-    :return:
-    """
-
-    # Define where to put the file and the file name then save the file there
-
-    destination_directory = destination_dir
-
-    file_name_to_use = file_name
-
-    destination = pathlib.Path(destination_directory, file_name_to_use)
-
-    data.to_csv(destination)
-
 # Function to pipeline the creating of the hourly sum then saving it to a specified directory
 def hourly_sleep_save_file_pipeline(read_file_name, destination_dir):
     """
