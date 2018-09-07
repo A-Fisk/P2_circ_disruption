@@ -87,3 +87,134 @@ def read_file_to_df(file_name):
                      parse_dates=True)
 
     return df
+
+# Function to check subdirectory and create if doesn't exist
+def create_subdir(input_directory, subdir_name):
+    """
+    Function takes in Path object of input_directory and string of subdir name, adds them together, checks if it
+    exists and if it doesn't creates new directory
+
+    :param input_directory:
+    :param subdir_name:
+    :return:
+    """
+
+    # create path name
+    # check if exists
+    # create it if it doesn't exist
+    # return path name
+
+    sub_dir_path = input_directory / subdir_name
+
+    if not sub_dir_path.exists():
+
+        sub_dir_path.mkdir()
+
+    return sub_dir_path
+
+# Function to create file_name_path
+def create_file_name_path(directory, file, save_suffix):
+    """
+    Simple function to put together directory, file.stem, and suffix to create path
+    :param directory:
+    :param file:
+    :param save_suffix:
+    :return:
+    """
+
+    # combine directory, file stem and save suffix
+    file_path = directory / (file.stem + save_suffix)
+
+    return file_path
+
+# Create save_pipeline class with objects for saving csv and plots depending on the method used
+class save_object_pipeline:
+    """
+    Class object for saving data to a file. Main object used for processing data and saving it to a directory
+    Separate methods for saving dataframes to csv files and for creating and saving plots to a file
+
+    init method globs all the files in the input_directory and creates a df_list with dataframes of all the files in
+    the input_directory, then creates the subdirectory
+
+    Takes the arguments initially of
+    Input_directory - place to search for files to process
+    Subdir_name - name for subdirectory to be created in input_directory to hold new files
+    search_suffix - default .csv, name to glob for files in input_directory
+
+    """
+
+
+    # init method to create attributes
+    def __init__(self, input_directory, subdir_name, search_suffix = ".csv"):
+
+        self.input_directory = input_directory
+
+        self.subdir_name = subdir_name
+
+        self.search_suffix = search_suffix
+
+        # create the file list by globbing for the search suffix
+        self.file_list = list(self.input_directory.glob("*" + self.search_suffix))
+
+        # read all the dfs into a list
+        self.df_list = []
+
+        for file in self.file_list:
+
+            temp_df = read_file_to_df(file)
+
+            self.df_list.append(temp_df)
+
+        self.subdir_path = create_subdir(self.input_directory, self.subdir_name)
+
+    # method for saving a csv file
+    def save_csv_file(self, function_name, save_suffix):
+        """
+        Method that applies a defined function to all the dataframes in the df_list and saves them to the subdir
+
+        :param function_name:
+        :param save_suffix:
+        :return:
+        """
+
+        # For every df in the list
+        # apply the function
+        # create the name to save it
+        # save the df there
+
+        for df, file in zip(self.df_list, self.file_list):
+
+            temp_df = function_name(df)
+
+            file_name_path = create_file_name_path(self.subdir_path, file, save_suffix)
+
+            temp_df.to_csv(file_name_path)
+
+    # method for saving a plot
+    def create_plot(self, function_name, save_suffix='.png', showfig=False, savefig=True, dpi=300):
+        """
+        Method to take each df and apply given plot function and save to file
+        Default parameters of showfig = False and savefig = True but can be changed
+
+        :param function_name:
+        :param showfig:
+        :param savefig:
+        :return:
+        """
+
+        # for every df in the list
+        # create the save name
+        # remove the object col
+        # apply the plotting function, passing savefig and showfig arguments to the function and the path to save name
+        for df, file in zip(self.df_list, self.file_list):
+
+            file_name_path = create_file_name_path(self.subdir_path, file, save_suffix)
+
+            temp_df = remove_object_col(df, return_cols=False)
+
+            function_name(temp_df,
+                          file_name_path,
+                          showfig=showfig,
+                          savefig=savefig,
+                          dpi=dpi)
+

@@ -56,64 +56,6 @@ def sleep_create_df(data):
 
     return sleep_df
 
-# Function to glob all the files in a directory, create new directory, and save all files in there with same name but
-#  additional suffix.
-def process_all_files_in_dir(input_directory, function_name, save_suffix, subdir_name, search_suffix=".csv"):
-    """
-    Function to take the directory given, glob all the files in that directory, apply the given function to them and
-    save the output into a subdirectory
-    :param directory:
-    :param function_name:
-    :param suffix:
-    :return:
-    """
-
-    # glob all the files in the directory
-    # read the files into a df
-    # apply function to the dfs
-    # create subdirectory
-    # save df in that directory
-
-    # glob files in directory
-
-    file_list = list(input_directory.glob("*" + search_suffix))
-
-    # read files into dfs
-
-    df_list = []
-
-    for file in file_list:
-
-        temp_df = read_file_to_df(file)
-
-        df_list.append(temp_df)
-
-    # apply function to the dfs
-
-    processed_list = []
-
-    for df in df_list:
-
-        temp_output = function_name(df)
-
-        processed_list.append(temp_output)
-
-    # create subdirectory
-
-    sub_dir_path = input_directory / subdir_name
-
-    if not sub_dir_path.exists():
-
-        sub_dir_path.mkdir()
-
-    # save the files in that subdir
-
-    for df, file in zip(processed_list, file_list):
-
-        file_name_path = sub_dir_path / (file.stem + save_suffix)
-
-        df.to_csv(file_name_path)
-
 # Function to get hourly sum of sleep data
 def create_hourly_sum(data, index_col=-1):
     """
@@ -176,7 +118,7 @@ def hourly_sleep_save_file_pipeline(read_file_name, destination_dir):
     save_sleep_csv_file(data_hourly, destination_dir, file_name_only)
 
 # Function to plot data and save to file
-def simple_plot(data, destination_dir='.', file_name="test.svg", savefig=False, showfig=True):
+def simple_plot(data, save_path, dpi=300, savefig=False, showfig=True):
     """
     Function take in pandas dataframe, plot it as subplots, and then save to specified place
     :param data:
@@ -185,23 +127,15 @@ def simple_plot(data, destination_dir='.', file_name="test.svg", savefig=False, 
     :return:
     """
 
-    # create the destination to save as
-
-    destination_directory = destination_dir
-
-    file_name_to_use = file_name
-
-    destination = pathlib.Path(destination_directory, file_name_to_use)
-
     # plot the file
 
     no_rows = len(data.columns)
 
     fig, ax = plt.subplots(nrows=no_rows, sharey=True)
 
-    for axis, col in enumerate(data.columns):
+    for axis, col in zip(ax, data.columns):
 
-        ax[axis].plot(data[col])
+        axis.plot(data[col])
 
     if showfig:
 
@@ -209,4 +143,4 @@ def simple_plot(data, destination_dir='.', file_name="test.svg", savefig=False, 
 
     if savefig:
 
-        plt.savefig(destination, dpi=500)
+        plt.savefig(save_path, dpi=dpi)
