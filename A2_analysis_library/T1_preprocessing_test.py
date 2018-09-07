@@ -61,3 +61,13 @@ class tests_preprocessing(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# TODO test for following:
+# TODO separate by condition
+# TODO read file to df
+# TODO create subdir
+# TODO create file name path
+# TODO SaveObjectPipeline - save csv file and create plot
+
+

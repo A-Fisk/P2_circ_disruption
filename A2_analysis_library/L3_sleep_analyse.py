@@ -84,39 +84,6 @@ def create_hourly_sum(data, index_col=-1):
 
     return df_hourly_sum
 
-# Function to pipeline the creating of the hourly sum then saving it to a specified directory
-def hourly_sleep_save_file_pipeline(read_file_name, destination_dir):
-    """
-    Function to read the sleep file from the directory, process it into hourly sum, and then save it in specified
-    directory
-
-    :param read_file_name:
-    :param destination_dir:
-    :param save_file_name:
-    :return:
-    """
-
-    # Read the file in as a dataframe
-    # process it for hourly sum
-    # create save file_name and destination
-    # save it there
-
-    # read file
-
-    data = pd.read_csv(read_file_name,
-                       index_col=0,
-                       parse_dates=True)
-
-    # process it for hourly sum
-
-    data_hourly = create_hourly_sum(data)
-
-    # create name and save
-
-    file_name_only = read_file_name.name
-
-    save_sleep_csv_file(data_hourly, destination_dir, file_name_only)
-
 # Function to plot data and save to file
 def simple_plot(data, save_path, dpi=300, savefig=False, showfig=True):
     """

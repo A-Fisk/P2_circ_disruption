@@ -40,3 +40,7 @@ if __name__ == "__main__":
 
 
 
+# TODO Implement tests for following functions:
+# TODO sleep create df
+# TODO create_hourly_sum
+# TODO simple_plot

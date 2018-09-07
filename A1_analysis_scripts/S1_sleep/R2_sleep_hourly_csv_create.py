@@ -1,8 +1,8 @@
 import sys
 import pathlib
 sys.path.append(pathlib.Path("..","..",'A2_analysis_library', '.'))
-from A2_analysis_library.L1_preprocessing import save_object_pipeline
-from A2_analysis_library.L3_sleep_analyse import create_hourly_sum
+from A2_analysis_library.L1_preprocessing import SaveObjectPipeline
+from A2_analysis_library.L3_sleep_analyse import create_hourly_sum, simple_plot
 
 # define input director
 # define subdir name
@@ -10,12 +10,22 @@ from A2_analysis_library.L3_sleep_analyse import create_hourly_sum
 
 input_dir = pathlib.Path("/Users/angusfisk/Documents/01_PhD_files/01_projects/P2_Circ_Disruption_paper_chapt2/03_data_files/01_sleep_csvs")
 
-save_suffix = '_hourly.csv'
+save_suffix_csv = '_hourly.csv'
 
-subdir_name = "01_hourly_sum"
+subdir_name_csv = "01_hourly_sum"
 
-sleep_dfs = save_object_pipeline(input_directory=input_dir,
-                                 subdir_name=subdir_name)
+save_suffix_plot = "_hourly_plot.png"
 
-sleep_dfs.save_csv_file(create_hourly_sum,
-                        save_suffix=save_suffix)
+subdir_name_plot = subdir_name_csv + "/01_plots"
+
+sleep_dfs = SaveObjectPipeline(input_directory=input_dir)
+
+sleep_dfs.save_csv_file(function_name=create_hourly_sum,
+                        subdir_name=subdir_name_csv,
+                        save_suffix=save_suffix_csv)
+
+sleep_dfs.create_plot(function_name=simple_plot,
+                      subdir_name=subdir_name_plot,
+                      save_suffix=save_suffix_plot)
+
+
