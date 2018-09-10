@@ -90,6 +90,11 @@ class tests_preprocessing(unittest.TestCase):
 
     # first test for remove_object_col function
     def test_remove_object_col_function(self):
+        """
+        Tests remove object col by applying function to known df
+        should be 2 non-object columns
+        :return:
+        """
 
         removed_col_data = L1_preprocessing.remove_object_col(self.test_data_df)
 
@@ -99,6 +104,11 @@ class tests_preprocessing(unittest.TestCase):
 
     # second test check separate by condition on df
     def test_separate_by_condition(self):
+        """
+        Separates condition based on final column, should be 3 separate conditions returned in a list
+        :return:
+        """
+
         separated_list = L1_preprocessing.separate_by_condition(self.test_data_df,
                                                                 label_col=-1)
 
