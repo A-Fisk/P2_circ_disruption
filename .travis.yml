@@ -20,9 +20,9 @@ install:
   # Useful for debugging any issues with conda
   - conda info -a
 
-  # Replace dep1 dep2 ... with your dependencies
-  - conda env create -n testenv -f environment.yml python=$TRAVIS_PYTHON_VERSION
-  - source activate testenv
+  # use environment.yml file to build
+  - conda env create -f environment.yml 
+  - source activate P2_circ_disruption_environment
   - python setup.py install
 
 script:
