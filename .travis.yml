@@ -23,7 +23,6 @@ install:
   # use environment.yml file to build
   - conda env create -f environment.yml 
   - source activate P2_circ_disruption_environment
-  - python setup.py install
 
 script:
  - A2_analysis_library.T1_preprocessing_test.py
