@@ -1,4 +1,13 @@
 langauge: python
 
-rvm:
-	- 3.7
+python:
+ - "3.7"
+
+install:
+ - pip install -r environment.yml
+
+script:
+ - A2_analysis_library.T1_preprocessing_test.py
+ - A2_analysis_library.T3_sleep_analyse_test.py
+
+ 
