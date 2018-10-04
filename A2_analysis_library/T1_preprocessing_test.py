@@ -4,6 +4,7 @@ import unittest
 import numpy as np
 import pandas as pd
 import pathlib
+import datetime
 import L1_preprocessing
 
 np.random.seed(42)
@@ -27,59 +28,43 @@ class tests_preprocessing(unittest.TestCase):
         # turn into a Dataframe
 
         # lists with specific data types
-
         col_1_list = np.random.rand(100)
-
         col_2_list = np.random.randint(0, 1, size=100, dtype=int)
-
         col_3_list = np.random.randint(0, 1, size=100, dtype=int).astype("O")
-
         col_4_list = np.random.randint(10, 20, size=100, dtype=int).astype("O")
-
         list_of_columns = [col_1_list,
                            col_2_list,
                            col_3_list,
                            col_4_list]
 
         # assigning the names and data types to use
-
         dtypes_to_use = {"0":"float",
                          "1":"int",
                          "2":"object",
                          "3":"object",
                          "periods":"object"}
-
         col_names = ["0", "1", "2", "3", "index"]
 
         # create the index
-
         self.start = '2018-01-01 00:00:00'
-
         index_1 = pd.date_range(start=self.start,
                                 freq='10S',
                                 periods=len(col_1_list))
 
         # Turn these lists into a dataframe
         # with the correct column names and dtypes for the test
-
         test_data_df = pd.DataFrame(list_of_columns).T
-
         test_data_df.index = index_1
-
         test_data_df.columns = col_names[:-1]
 
         # create the final index column as different values for sep condition test
-
         test_data_df["periods"] = 100
-
         test_data_df.iloc[:31,-1] = 5
         test_data_df.iloc[31:61, -1] = 50
         test_data_df.iloc[61:, -1] = 75
 
         # set the data types
-
         test_data_df_typed = test_data_df.astype(dtype = dtypes_to_use)
-
         self.test_data_df = test_data_df_typed
 
         # save it to a csv file.
@@ -97,9 +82,7 @@ class tests_preprocessing(unittest.TestCase):
         """
 
         removed_col_data = L1_preprocessing.remove_object_col(self.test_data_df)
-
         number_remaining_columns = len(removed_col_data.columns)
-
         self.assertEqual(2, number_remaining_columns)
 
     # second test check separate by condition on df
@@ -111,9 +94,7 @@ class tests_preprocessing(unittest.TestCase):
 
         separated_list = L1_preprocessing.separate_by_condition(self.test_data_df,
                                                                 label_col=-1)
-
         number_of_separate_conditions = len(separated_list)
-
         self.assertEqual(3, number_of_separate_conditions)
 
     def test_read_file_to_df_funct(self):
@@ -132,7 +113,6 @@ class tests_preprocessing(unittest.TestCase):
 
         # check index [0] is correct
         first_index = (df_testread.index[0])
-
         self.assertEqual(str(first_index), self.start)
 
         # check index is a timestamp.
@@ -146,6 +126,44 @@ class tests_preprocessing(unittest.TestCase):
         import os
         os.remove(str(self.save_str))
 
+class test_split_by_period_functions(unittest.TestCase):
+    """
+    test class
+    create dataframe with given length and period and
+    then see if get the right number of values when
+    creating period index, slicing by that index,
+    and creating a new index
+    """
+
+    def setUp(self):
+        # create dataframe of 3 days at 1 second intervals
+        length_of_df = int(pd.Timedelta("3D").total_seconds())
+        start = pd.Timestamp(datetime.datetime.now())
+        index = pd.DatetimeIndex(start=start,
+                                 freq='S',
+                                 periods=length_of_df)
+        values = np.random.randint(0, 100, length_of_df)
+        data = pd.DataFrame(values,
+                            index=index)
+        self.data = data
+        self.test_period_index = L1_preprocessing.create_period_index(
+                                    self.data)
+
+    def test_create_period_index(self):
+        # should return value of 3
+        self.assertEqual(len(self.test_period_index), 3)
+
+    def test_slice_by_index(self):
+        # should have 3 columns = len is 3
+        # select the series then pass to the function
+        data_series = self.data.iloc[:,0]
+        period_sliced_df = L1_preprocessing.slice_dataframe_by_index(
+                            data_series,
+                            self.test_period_index)
+        self.assertEqual(len(period_sliced_df.columns), 3)
+        
+#     TODO create test for ct based index
+#     TODO create test for entire slice df function
 
 if __name__ == "__main__":
     unittest.main()

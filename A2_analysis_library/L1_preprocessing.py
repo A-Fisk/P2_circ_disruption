@@ -126,7 +126,6 @@ def create_file_name_path(directory, file, save_suffix):
 
     return file_path
 
-
 # Create save_pipeline class with objects for saving csv and plots depending on the method used
 class SaveObjectPipeline:
     """
@@ -233,3 +232,135 @@ class SaveObjectPipeline:
                           showfig=showfig,
                           savefig=savefig,
                           dpi=dpi)
+
+
+######### Group of functions for split by period function ##########
+
+def create_period_index(data, period=None):
+    """
+    Function to create a list of timestamps
+    that vary by the given period
+    which can then be used to slice a dataframe by
+    :param data: timestamp indexed data
+        so can grab the start and end for the period range
+    :param period: in "%H %T" format
+        defaults to 24H 0T if not given
+    :return: list of timestamps a given period apart
+    """
+
+    # set the default value for period if not given
+
+    if not period:
+        period = "24H 0T"
+
+    # grab the start and the end of the data
+    # index and use this to create the range
+    start, end = data.index[0], data.index[-1]
+
+    # create period range using these parameters
+    period_index_list = pd.date_range(start=start,
+                                      end=end,
+                                      freq=period)
+
+    return period_index_list
+
+def slice_dataframe_by_index(data_series, index_list):
+    """
+    Function that takes a timestamp indexed
+    series and slices according to the indexes
+    provided in the index list
+    Returns a dataframe of generically indexed values
+    with each period in a separate column
+    :param data_series: datetimeindex series
+    :param index_list: output of create_period_index expected,
+        list of datetimes to slice by
+    :return: generically indexed dataframe with each period in
+        a separate column
+    """
+
+    # loop through each day and append the values to a list
+    data_by_day_list = []
+    for day_start, day_end in zip(index_list[:-1], index_list[1:]):
+        day_data = data_series.loc[day_start:day_end].values
+        data_by_day_list.append(day_data)
+
+    # append the final day of data as well
+    final_day_start = index_list[-1]
+    final_day_data = data_series.loc[final_day_start:].values
+    data_by_day_list.append(final_day_data)
+
+    # concat into one large dataframe
+    period_sliced_dataframe = pd.DataFrame(data_by_day_list).T
+
+    return period_sliced_dataframe
+
+def create_ct_based_index(period_sliced_data, CT_period=None):
+    """
+    Create new index for data based on a given length of circadian time
+    given want the dataframe to be indexed to be
+    equivalent to 24 hours, needs to be reindexed
+    at a frequency of seconds and miliseconds to
+    get required accuracy
+    :param period_sliced_data: data sliced by period with generic index
+        used to get length of new bins
+    :param CT_period: defaults to "24H 0T" can change if required
+    :return: datetimeindex
+    """
+
+    # set the default CT value
+    if not CT_period:
+        CT_period = "24H 0T"
+
+    # create new index frequency from how close the
+    # old dataframe is in seconds to 24 hours
+    CT_seconds = pd.Timedelta(CT_period).total_seconds()
+    dataframe_seconds = len(period_sliced_data)
+    ratio_seconds = CT_seconds/dataframe_seconds
+    int_seconds = int(ratio_seconds)
+    miliseconds = round((ratio_seconds - int_seconds)*1000)
+    new_frequency = str(int_seconds) + "S " + str(miliseconds) + "ms"
+
+    # create new index from frequency and length of dataframe
+    new_index = pd.timedelta_range(start="0S",
+                                   freq=new_frequency,
+                                   periods=dataframe_seconds)
+
+    return new_index
+
+def split_dataframe_by_period(data,
+                              animal_number,
+                              period=None,
+                              CT_period=None):
+    """
+    Function to split a long dataframe into
+    each day given by period as a different column
+    indexed by *circadian* time
+    :param data: datetimeindexed dataframe
+    :param animal_number: which column to slice
+    :param period: default 24H, period to slice by
+    :param CT_period: default 24H, circadian period to index final 
+        dataframe by
+    :return: CT period datetime indexed dataframe   
+        with each day in a subsequent column
+    """
+
+    # create index of days to slice by
+    period_based_index = create_period_index(data, period)
+
+    # select just the animal we want and slice that
+    animal_data_series = data.iloc[:, animal_number]
+    period_sliced_data = slice_dataframe_by_index(animal_data_series,
+                                                  period_based_index)
+
+    # create the new index and re-index the data
+    new_index = create_ct_based_index(period_sliced_data, CT_period)
+    period_sliced_data.index = new_index
+
+    # tidy up columns to equal day numbers
+    # and name to equal animal name
+    number_of_days = len(period_sliced_data.columns)
+    period_sliced_data.columns = range(number_of_days)
+    animal_label = data.columns[animal_number]
+    period_sliced_data.name = animal_label
+
+    return period_sliced_data
