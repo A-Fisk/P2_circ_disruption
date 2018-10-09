@@ -309,7 +309,7 @@ def create_ct_based_index(period_sliced_data, CT_period=None):
 
     # set the default CT value
     if not CT_period:
-        CT_period = "24H 0T"
+        CT_period = "24H 0M"
 
     # create new index frequency from how close the
     # old dataframe is in seconds to 24 hours

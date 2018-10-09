@@ -143,8 +143,10 @@ class test_split_by_period_functions(unittest.TestCase):
                                  freq='S',
                                  periods=length_of_df)
         values = np.random.randint(0, 100, length_of_df)
+        self.test_col_name = ["test"]
         data = pd.DataFrame(values,
-                            index=index)
+                            index=index,
+                            columns=self.test_col_name)
         self.data = data
         self.test_period_index = L1_preprocessing.create_period_index(
                                     self.data)
@@ -162,8 +164,18 @@ class test_split_by_period_functions(unittest.TestCase):
                             self.test_period_index)
         self.assertEqual(len(period_sliced_df.columns), 3)
         
+    def test_integrated_slice_function(self):
+        # call slice function
+        sliced_df = L1_preprocessing.split_dataframe_by_period(self.data,
+                                                               0)
+        # assert name is correct
+        self.assertEqual(sliced_df.name, self.test_col_name[0])
+        # assert number of columns is correct, 3 days
+        self.assertEqual(len(sliced_df.columns), 3)
+        # assert length of df is correct 86401 for 24 hours of data
+        self.assertEqual(len(sliced_df), 86401)
+        
 #     TODO create test for ct based index
-#     TODO create test for entire slice df function
 
 if __name__ == "__main__":
     unittest.main()
