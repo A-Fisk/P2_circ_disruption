@@ -1,6 +1,6 @@
 import sys
+print (sys.path)
 import pathlib
-sys.path.append(pathlib.Path("..","..",'A2_analysis_library', '.'))
 from A2_analysis_library.L1_preprocessing import SaveObjectPipeline
 from A2_analysis_library.L3_sleep_analyse import create_hourly_sum, simple_plot
 
@@ -24,7 +24,7 @@ sleep_dfs.save_csv_file(function_name=create_hourly_sum,
                         subdir_name=subdir_name_csv,
                         save_suffix=save_suffix_csv)
 
-sleep_dfs.create_plot(function_name=simple_plot,
+sleep_dfs.create_plot(function_name=simple_plot
                       subdir_name=subdir_name_plot,
                       save_suffix=save_suffix_plot)
 
