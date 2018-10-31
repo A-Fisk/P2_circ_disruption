@@ -9,14 +9,19 @@ import actigraphy_analysis.episodes as ep
 
 input_directory = pathlib.Path("/Users/angusfisk/Documents/01_PhD_files/"
                                 "01_projects/P2_Circ_Disruption_paper_chapt2/"
-                                "03_data_files")
-save_directory = input_directory / "../03_data_files"
-subdir_name = "01_episodes"
+                                "03_data_files/01_episodes")
+save_directory = input_directory.parents[1] / "02_analysis_outputs"
+subdir_name = "03_episode_hist"
 
 episode_object = prep.SaveObjectPipeline(input_directory=input_directory,
                                          save_directory=save_directory)
-episode_object.process_file(module=ep,
-                            function_name="episode_find_df",
-                            subdir_name=subdir_name,
-                            savecsv=True)
+episode_object.create_plot(function_name="ep_hist_conditions_from_df",
+                           module=ep,
+                           subdir_name=subdir_name,
+                           data_list=episode_object.df_list,
+                           save_suffix='.png',
+                           remove_col=False,
+                           savefig=True,
+                           figsize=(15,10))
+                           
 
