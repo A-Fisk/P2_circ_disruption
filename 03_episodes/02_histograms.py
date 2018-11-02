@@ -3,6 +3,7 @@
 
 import pathlib
 import sys
+import numpy as np
 sys.path.insert(0, "/Users/angusfisk/Documents/01_PhD_files/07_python_package/actigraphy_analysis")
 import actigraphy_analysis.preprocessing as prep
 import actigraphy_analysis.episodes as ep
@@ -15,6 +16,7 @@ subdir_name = "03_episode_hist"
 
 episode_object = prep.SaveObjectPipeline(input_directory=input_directory,
                                          save_directory=save_directory)
+bins = np.linspace(0,100,11)
 episode_object.create_plot(function_name="ep_hist_conditions_from_df",
                            module=ep,
                            subdir_name=subdir_name,
@@ -22,6 +24,18 @@ episode_object.create_plot(function_name="ep_hist_conditions_from_df",
                            save_suffix='.png',
                            remove_col=False,
                            savefig=True,
-                           figsize=(15,10))
+                           figsize=(15,10),
+                           bins=bins,
+                           xtitle="Episode duration (seconds)")
+episode_object.create_plot(function_name="ep_hist_conditions_from_df",
+                           module=ep,
+                           subdir_name=subdir_name,
+                           data_list=episode_object.df_list,
+                           save_suffix='.svg',
+                           remove_col=False,
+                           savefig=True,
+                           figsize=(15,10),
+                           bins=bins,
+                           xtitle="Episode duration (seconds)")
                            
 

@@ -16,7 +16,7 @@ subdir_name = "01_episodes"
 episode_object = prep.SaveObjectPipeline(input_directory=input_directory,
                                          save_directory=save_directory)
 episode_object.process_file(module=ep,
-                            function_name="episode_find_df",
+                            function_name="create_episode_df",
                             subdir_name=subdir_name,
                             savecsv=True)
 
