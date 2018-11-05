@@ -20,4 +20,9 @@ sleep_object.process_file(module=sleep,
                           function_name="create_scored_df",
                           subdir_name=subdir_name,
                           savecsv=True)
-
+sleep_object.process_file(module=sleep,
+                          function_name="alter_file_name",
+                          subdir_name=subdir_name,
+                          savecsv=False,
+                          suffix="_sleep_data",
+                          object_list=sleep_object.processed_file_list)

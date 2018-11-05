@@ -10,13 +10,13 @@ import actigraphy_analysis.episodes as ep
 
 input_directory = pathlib.Path("/Users/angusfisk/Documents/01_PhD_files/"
                                 "01_projects/P2_Circ_Disruption_paper_chapt2/"
-                                "03_data_files/01_episodes")
-save_directory = input_directory.parents[1] / "02_analysis_outputs"
-subdir_name = "03_episode_hist"
+                                "03_data_files/02_sleep/01_episodes")
+save_directory = input_directory.parents[2] / "02_analysis_outputs/04_sleep"
+subdir_name = "01_episode_hist"
 
 episode_object = prep.SaveObjectPipeline(input_directory=input_directory,
                                          save_directory=save_directory)
-bins = np.linspace(0,2000,31)
+bins = np.linspace(0,12000,21)
 episode_object.create_plot(function_name="ep_hist_conditions_from_df",
                            module=ep,
                            subdir_name=subdir_name,
@@ -28,4 +28,3 @@ episode_object.create_plot(function_name="ep_hist_conditions_from_df",
                            bins=bins,
                            xtitle="Episode duration (seconds)",
                            logy=True)
-
