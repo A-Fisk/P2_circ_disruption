@@ -54,7 +54,9 @@ plot_kwargs = {
     "remove_col": False,
     "figsize": (10, 10),
     "subdir_path": save_plot_path,
-    "ylabel": "hours of sleep per day, Hours"
+    "ylabel": "hours of sleep per day, Hours",
+    "title": "Hours of sleep per 24 hour day",
+    "set_file_title": False
 }
 count_object.create_plot(**plot_kwargs)
 

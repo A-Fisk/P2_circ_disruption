@@ -40,13 +40,6 @@ save_plot_path = prep.create_subdir(
     subdir_name
 )
 
-# convert to hours for plotting
-count_object.processed_df = prep._convert_to_units(
-    count_object.processed_df,
-    base_freq="10s",
-    target_freq="1H",
-)
-
 plot_kwargs = {
     "function": (als, "pointplot_from_df"),
     "showfig": False,
@@ -60,7 +53,10 @@ plot_kwargs = {
     "remove_col": False,
     "figsize": (10, 10),
     "subdir_path": save_plot_path,
-    "ylabel": "hours of activity, hours"
+    "ylabel": "hours of activity, hours",
+    "title": "Hours of activity per 24 hour day",
+    "set_file_title": False,
+    "set_name_title": False
 }
 count_object.create_plot(**plot_kwargs)
 
