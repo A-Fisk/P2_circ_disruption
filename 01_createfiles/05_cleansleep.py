@@ -25,7 +25,8 @@ clean_object = prep.SaveObjectPipeline(**init_kwargs)
 
 process_kwargs = {
     "function": (prep, "clean_data"),
-    "savecsv": True
+    "savecsv": True,
+    "append_post": False,
 }
 clean_object.process_file(**process_kwargs)
 
