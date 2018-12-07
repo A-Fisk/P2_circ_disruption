@@ -18,7 +18,7 @@ init_kwargs = {
     "save_directory": save_directory,
     "subdir_name": subdir_name,
     "func": (prep, "read_file_to_df"),
-    "index_col": [1, 0],
+    "index_col": [0, 1],
     "header": [0]
 }
 clean_object = prep.SaveObjectPipeline(**init_kwargs)
