@@ -6,22 +6,23 @@ import sys
 sys.path.insert(0, "/Users/angusfisk/Documents/01_PhD_files/"
                     "07_python_package/actiPy")
 import actiPy.preprocessing as prep
-import actiPy.episodes as ep
+import actiPy.waveform as wave
 
 # define the input directoryies
 activity_dir = pathlib.Path("/Users/angusfisk/Documents/01_PhD_files/"
                               "01_projects/P2_Circ_Disruption_paper_chapt2/"
-                              "01_data_files/01_activity/01_episodes")
-sleep_dir = activity_dir.parents[1] / "02_sleep/01_episodes"
+                              "01_data_files/01_activity/00_clean")
+sleep_dir = activity_dir.parents[1] / "02_sleep/00_clean"
 input_list = [activity_dir, sleep_dir]
 
 # define the save directories
-activity_save = activity_dir.parents[2] / '03_analysis_outputs/01_activity'
-sleep_save = activity_save.parents[0] / '02_sleep'
+activity_save = activity_dir.parents[2] / \
+                '03_analysis_outputs/01_activity/'
+sleep_save = activity_save.parents[0] / '02_sleep/'
 output_list = [activity_save, sleep_save]
 
 # define the subdirectory in the save directory to create and save in
-subdir_name = '03_episodes/01_sum'
+subdir_name = '04_waveform/01_24hr'
 
 # define the keywords for reading in the file
 init_kwargs = {
@@ -31,33 +32,20 @@ init_kwargs = {
     "header": [0]
 }
 
-# define process kwargs
-process_kwargs = {
-    "function": (ep, "_stack_all_values")
-}
-
-
 # define the keywords to plot the file
 plot_kwargs = {
-    "function": (ep, "episode_histogram"),
-    "data_list": "processed",
-    "logy": True,
+    "function": (wave, "plot_wave_from_df"),
     "remove_col": False,
     "showfig": False,
     "savefig": True,
-    "xlabel": "Episode Duration (seconds)",
-    "figsize": (20, 10),
-    "bins": np.linspace(0, 4000, 100),
-    "xlim": [0, 4000],
+    "figsize": (15,10),
 }
-
 
 # apply process to both activity and sleep
 for input, save in zip(input_list, output_list):
 
     # copy the kwargs
     curr_init = init_kwargs
-    curr_process = process_kwargs
     curr_plot = plot_kwargs
 
     # modify the init and plot kwargs if necessary
@@ -65,6 +53,6 @@ for input, save in zip(input_list, output_list):
     curr_init["save_directory"] = save
 
     # process all the files
-    ep_object = prep.SaveObjectPipeline(**curr_init)
-    ep_object.process_file(**curr_process)
-    ep_object.create_plot(**curr_plot)
+    wave_object = prep.SaveObjectPipeline(**curr_init)
+    wave_object.create_plot(**curr_plot)
+

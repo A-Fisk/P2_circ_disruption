@@ -50,7 +50,8 @@ for input, save in zip(input_list, output_list):
     curr_init["input_directory"] = input
     curr_init["save_directory"] = save
     
-    if "02" in input.stem:
+    if "sleep" in input.parent.stem:
+        print(input.stem)
         curr_plot["ylim"] = [0, 1.5]
         
     short_act_object = prep.SaveObjectPipeline(**curr_init)
