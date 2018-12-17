@@ -140,6 +140,8 @@ for animal_no, column in enumerate(df.columns[:-1]):
     
 fully_split = pd.concat(split_dict, axis=1)
 
+wave.plot_means(fully_split, fname=file)
+
 
 
 power_agg = animal_split.aggregate(np.mean, axis=1)

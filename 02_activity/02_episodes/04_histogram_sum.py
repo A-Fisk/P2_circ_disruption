@@ -64,6 +64,10 @@ for input, save in zip(input_list, output_list):
     curr_init["input_directory"] = input
     curr_init["save_directory"] = save
 
+    if "sleep" in input.parent.stem:
+        curr_plot["bins"] = np.linspace(0, 8000, 100)
+        curr_plot["xlim"] = [0, 8000]
+    
     # process all the files
     ep_object = prep.SaveObjectPipeline(**curr_init)
     ep_object.process_file(**curr_process)

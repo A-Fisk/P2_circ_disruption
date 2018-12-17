@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import pathlib
 import sys
+import numpy as np
 sys.path.insert(0, "/Users/angusfisk/Documents/01_PhD_files/"
                     "07_python_package/actiPy")
 import actiPy.preprocessing as prep
@@ -35,10 +36,11 @@ plot_kwargs = {
     "function": (ep, "episode_histogram"),
     "logy": True,
     "remove_col": False,
-    "showfig": False,
-    "savefig": True,
+    "showfig": True,
+    "savefig": False,
     "xlabel": "Episode Duration (seconds)",
     "figsize": (20, 10),
+    "bins": np.geomspace(10, 3600, 5)
 }
 
 # apply process to both activity and sleep
