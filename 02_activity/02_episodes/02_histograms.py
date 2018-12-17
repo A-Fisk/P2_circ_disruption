@@ -34,13 +34,15 @@ init_kwargs = {
 # define the keywords to process the file
 plot_kwargs = {
     "function": (ep, "episode_histogram"),
-    "logy": True,
+    "logy": False,
+    "logx": True,
     "remove_col": False,
-    "showfig": True,
-    "savefig": False,
+    "showfig": False,
+    "savefig": True,
     "xlabel": "Episode Duration (seconds)",
-    "figsize": (20, 10),
-    "bins": np.geomspace(10, 3600, 5)
+    "figsize": (10,5),
+    "bins": np.geomspace(10, 3600, 10),
+    "clip": True,
 }
 
 # apply process to both activity and sleep
