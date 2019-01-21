@@ -8,7 +8,7 @@ sys.path.insert(0, "/Users/angusfisk/Documents/01_PhD_files/"
 import actiPy.preprocessing as prep
 
 input_directory = pathlib.Path("/Users/angusfisk/Documents/01_PhD_files/"
-                                "01_projects/P2_Circ_Disruption_paper_chapt2/"
+                                "01_projects/01_thesisdata/02_circdis/"
                                 "01_data_files/01_activity")
 save_directory = input_directory
 subdir_name = '00_clean'

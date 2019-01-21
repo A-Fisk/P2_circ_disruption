@@ -8,7 +8,7 @@ import actiPy.preprocessing as prep
 import actiPy.sleep_process as sleep
 
 input_directory = pathlib.Path("/Users/angusfisk/Documents/01_PhD_files/"
-                                "01_projects/P2_Circ_Disruption_paper_chapt2/"
+                                "01_projects/01_thesisdata/02_circdis/"
                                 "01_data_files/01_activity")
 save_directory = input_directory.parent
 subdir_name = "02_sleep"

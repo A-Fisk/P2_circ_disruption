@@ -10,7 +10,7 @@ import actiPy.waveform as wave
 
 # define the input directoryies
 activity_dir = pathlib.Path("/Users/angusfisk/Documents/01_PhD_files/"
-                              "01_projects/P2_Circ_Disruption_paper_chapt2/"
+                              "01_projects/01_thesisdata/02_circdis/"
                               "01_data_files/01_activity/00_clean")
 sleep_dir = activity_dir.parents[1] / "02_sleep/00_clean"
 input_list = [activity_dir, sleep_dir]
@@ -37,8 +37,9 @@ plot_kwargs = {
     "function": (wave, "plot_wave_from_df"),
     "remove_col": False,
     "showfig": False,
-    "savefig": True,
+    "savefig": False,
     "figsize": (15,10),
+    "ignore_index": False,
 }
 
 # apply process to both activity and sleep
