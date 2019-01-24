@@ -12,6 +12,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gs
 import matplotlib.dates as mdates
+from matplotlib.lines import Line2D
 import seaborn as sns
 sns.set()
 import sys
@@ -120,9 +121,23 @@ measurement_col = COL_NAMES[-1]
 animal_col = COL_NAMES[-2]
 data_type_col = COL_NAMES[0]
 bins = np.geomspace(10, 3600, 10)
+label_size = 8
 
 # initialise figure
-fig, ax = plt.subplots(nrows=norows, ncols=nocols)
+# fig, ax = plt.subplots(nrows=norows, ncols=nocols)
+fig = plt.figure()
+upper_grid = gs.GridSpec(nrows=4, ncols=2, figure=fig, top=0.85, bottom=0.5,
+                         hspace=0)
+
+histogram_axes = []
+for row in range(4):
+    col_axes = []
+    for col in range(2):
+        add_ax = plt.subplot(upper_grid[row, col])
+        col_axes.append(add_ax)
+    histogram_axes.append(col_axes)
+    
+histogram_axes_array = np.array(histogram_axes)
 
 data = long_removed
 data_types = data[data_type_col].unique()
@@ -136,7 +151,7 @@ animals = data[animal_col].unique()
 for col_no, data_type in enumerate(data_types):
     
     # select the column
-    axis_column = ax[:, col_no]
+    axis_column = histogram_axes_array[:, col_no]
 
     # select just the data type
     # need to grab data type here as pir_data_sleep
@@ -150,41 +165,42 @@ for col_no, data_type in enumerate(data_types):
 
         # select the data
         curr_data = data[data[condition_col] == condition]
+        baseline_data = curr_data[curr_data[section_col]
+                                    == sections[0]]
+        disrupted_data = curr_data[curr_data[section_col]
+                                        == sections[1]]
 
-        # add in subplots for each PIR
-        inner_grid = gs.GridSpecFromSubplotSpec(nrows=1,
-                                                ncols=6,
-                                                subplot_spec=curr_ax,
-                                                wspace=0,
-                                                hspace=0)
-
-        for animal, grid in zip(animals, inner_grid):
+        ax1 = curr_ax
+        ax1.hist(baseline_data[measurement_col], alpha=0.5, color="k",
+                 bins=bins, density=True)
+        ax1.hist(disrupted_data[measurement_col], alpha=0.3, color="b",
+                 bins=bins, density=True)
+        
+        ax1.set_yscale('log')
+        ax1.set_xscale('log')
+        ax1.tick_params(axis='both', which='major', labelsize=label_size)
+        
+        # remove the axis label
+        if condition != conditions[-1]:
+            ax1.set_xticklabels(ax1.get_xticklabels(), visible=False)
+        else:
+            ax1.set_xlabel("Bout duration, log secs", size=label_size)
             
-            # select the data for just that PIR
-            animal_data =  curr_data[curr_data[animal_col] == animal]
-            baseline_data = animal_data[animal_data[section_col]
-                                        == sections[0]]
-            disrupted_data = animal_data[animal_data[section_col]
-                                            == sections[1]]
-
-            # create the new subplot
-            ax1 =plt.Subplot(fig, grid)
-            fig.add_subplot(ax1)
+        if condition == conditions[0]:
+            ax1.set_title("Log histogram of bout duration", size=label_size)
             
-            # plot the animal data on the new subplot
-            # baseline and disrupted on the same axis with lower alpha
-            ax1.hist(baseline_data[measurement_col], alpha=0.5, color="k",
-                     bins=bins, density=True)
-            ax1.hist(disrupted_data[measurement_col], alpha=0.5, color="b",
-                     bins=bins, density=True)
-            
-            ax1.set_yscale('log')
-            ax1.set_xscale('log')
+fig.text(0.07, 0.69, "Normalised density", rotation=90, size=label_size)
+fig.text(0.5, 0.69, "Normalised density", rotation=90, size=label_size)
 
 ### Plot scatterplot
-scatter_row = ax[-1, :]
 
-curr_scatter_axis = scatter_row[0]
+# create plots
+lower_grid = gs.GridSpec(nrows=1, ncols=2, top=0.40, bottom=0.1,
+                         figure=fig)
+activity_ax = plt.subplot(lower_grid[:, 0])
+sleep_ax = plt.subplot(lower_grid[:, 1])
+
+scatter_array = np.array([activity_ax, sleep_ax])
 
 median_col = scatter_data.columns[-2]
 count_col = scatter_data.columns[-1]
@@ -192,13 +208,13 @@ count_col = scatter_data.columns[-1]
 # loop through the data types
 for sep_col, data_type in enumerate(data_types):
     
-    curr_scatter_axis = scatter_row[sep_col]
+    curr_scatter_axis = scatter_array[sep_col]
     
     # select the data
     data_sep_type = scatter_data[scatter_data[data_type_col] == data_type]
-    ymin = data_sep_type[median_col].min()
-    ymax = data_sep_type[median_col].max() * (2/3)
-    xmin = data_sep_type[count_col].min()
+    ymin = 0
+    ymax = data_sep_type[median_col].max() * 0.8
+    xmin = 0
     xmax = data_sep_type[count_col].max()
     
     # create different conditions plots
@@ -235,43 +251,55 @@ for sep_col, data_type in enumerate(data_types):
         # try with a kdeplot instead
         sns.kdeplot(baseline_data[count_col], baseline_data[median_col],
                     shade=True, shade_lowest=False, cmap="Greys",
-                    ax=ax2, alpha = 0.5)
+                    ax=ax2, alpha = 0.8)
         sns.kdeplot(disrupted_data[count_col], disrupted_data[median_col],
                     shade=True, shade_lowest=False, cmap="Blues",
-                    ax=ax2, alpha = 0.5)
+                    ax=ax2, alpha = 0.3)
         
         # set x and y axis
         ax2.set(ylim=[ymin, ymax],
-                xlim=[xmin, xmax])
+                xlim=[xmin, xmax],
+                facecolor='w')
+        ax2.tick_params(axis='both', which='major', labelsize=label_size)
 
+        # remove the labels
+        if condition != conditions[0]:
+            ax2.set_yticks([])
+            ax2.set_yticklabels(ax2.get_yticklabels(), visible=False)
+        ax2.set_ylabel("")
+        ax2.set_xlabel("")
+        
+        # set the title to be each condition
+        ax2.set_title(condition, size=label_size, rotation=45, va="top")
+    
+    # remove curr axis labels
+    curr_scatter_axis.set_yticks([])
+    curr_scatter_axis.set_xticks([])
 
+    # set axis label
+    curr_scatter_axis.set_xlabel("Number of episodes per day", size=label_size)
+    curr_scatter_axis.set_ylabel("Median length of episodes per day, secs",
+                                 size=label_size)
+    curr_scatter_axis.yaxis.set_label_coords(-0.15, 0.5)
+    curr_scatter_axis.xaxis.set_label_coords(0.5, -0.15)
 
+# add in activity and sleep columns
+fig.text(0.25, 0.9, "Activity", size=label_size)
+fig.text(0.75, 0.9, "Sleep", size=label_size)
+
+# create the legend
+legend_lines = [Line2D([0], [0], color='w', alpha=0.8,
+                        marker='o', markersize=10, label="Baseline",
+                       markerfacecolor='k'),
+                Line2D([0], [0], color='w', alpha=0.4, marker='o',
+                        markersize=10, label="Disrupted",
+                       markerfacecolor='b')]
+fig.legend(handles=legend_lines, loc=(0.87, 0.9), fontsize=label_size,
+           frameon=False)
+
+fig.suptitle("Bout duration under different disrupting light cycles")
+fig.set_size_inches(8.27, 11.69)
+
+plt.savefig(SAVE_FIG, dpi=600)
 
 plt.close('all')
-
-
-t20_test_data = long_removed[long_removed[condition_col] == "t20_pir_data"]
-t20_median = t20_test_data[measurement_col]
-t20_median.plot()
-
-t20_upmedian = median_data.loc[idx[:, "ll_pir_data"], :]
-#
-#
-# fig1, ax1 = plt.subplots()
-#
-# condition = conditions[2]
-# # select the data
-# condition_scatter = data_sep_type[
-#     data_sep_type[condition_col] == condition
-# ]
-# baseline_data = condition_scatter[condition_scatter[section_col] ==
-#                                   sections[0]]
-# disrupted_data = condition_scatter[condition_scatter[section_col] ==
-#                                    sections[1]]
-#
-# sns.kdeplot(baseline_data[count_col], baseline_data[median_col],
-#             shade=True, shade_lowest=False, cmap="Greys",
-#             ax=ax1, alpha = 0.5)
-# sns.kdeplot(disrupted_data[count_col], disrupted_data[median_col],
-#             shade=True, shade_lowest=False, cmap="Blues",
-#             ax=ax1, alpha = 0.5)
