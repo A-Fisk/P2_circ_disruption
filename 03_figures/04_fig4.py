@@ -189,6 +189,9 @@ for col_no, data_type in enumerate(data_types):
         if condition == conditions[0]:
             ax1.set_title("Log histogram of bout duration", size=label_size)
             
+        ax1.text(0.8, 0.9, condition, transform=ax1.transAxes,
+                 size=label_size)
+        
 fig.text(0.07, 0.69, "Normalised density", rotation=90, size=label_size)
 fig.text(0.5, 0.69, "Normalised density", rotation=90, size=label_size)
 
@@ -290,11 +293,13 @@ fig.text(0.75, 0.9, "Sleep", size=label_size)
 # create the legend
 legend_lines = [Line2D([0], [0], color='w', alpha=0.8,
                         marker='o', markersize=10, label="Baseline",
-                       markerfacecolor='k'),
+                       markerfacecolor='0.5'),
                 Line2D([0], [0], color='w', alpha=0.4, marker='o',
                         markersize=10, label="Disrupted",
                        markerfacecolor='b')]
 fig.legend(handles=legend_lines, loc=(0.87, 0.9), fontsize=label_size,
+           frameon=False)
+fig.legend(handles=legend_lines, loc=(0.87, 0.42), fontsize=label_size,
            frameon=False)
 
 fig.suptitle("Bout duration under different disrupting light cycles")
