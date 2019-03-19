@@ -171,10 +171,13 @@ for col_no, data_type in enumerate(data_types):
                                         == sections[1]]
 
         ax1 = curr_ax
-        ax1.hist(baseline_data[measurement_col], alpha=0.5, color="k",
-                 bins=bins, density=True)
-        ax1.hist(disrupted_data[measurement_col], alpha=0.3, color="b",
-                 bins=bins, density=True)
+        ax1.hist([baseline_data[measurement_col],
+                  disrupted_data[measurement_col]],
+                  # alpha=0.5,
+                  color=["k", 'b'],
+                  bins=bins, density=True)
+        # ax1.hist(disrupted_data[measurement_col], alpha=0.3, color="b",
+        #          bins=bins, density=True)
         
         ax1.set_yscale('log')
         ax1.set_xscale('log')
@@ -253,11 +256,11 @@ for sep_col, data_type in enumerate(data_types):
         
         # try with a kdeplot instead
         sns.kdeplot(baseline_data[count_col], baseline_data[median_col],
-                    shade=True, shade_lowest=False, cmap="Greys",
-                    ax=ax2, alpha = 0.8)
+                    shade=False, shade_lowest=False, cmap="Greys",
+                    ax=ax2, alpha=0.8)
         sns.kdeplot(disrupted_data[count_col], disrupted_data[median_col],
-                    shade=True, shade_lowest=False, cmap="Blues",
-                    ax=ax2, alpha = 0.3)
+                    shade=False, shade_lowest=False, cmap="Blues",
+                    ax=ax2, alpha=0.8)
         
         # set x and y axis
         ax2.set(ylim=[ymin, ymax],

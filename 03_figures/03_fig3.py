@@ -26,6 +26,7 @@ idx = pd.IndexSlice
 save_fig = pathlib.Path("/Users/angusfisk/Documents/01_PhD_files/"
                         "01_projects/01_thesisdata/02_circdis/"
                         "03_analysis_outputs/03_figures/03_fig3.png")
+save_csv = save_fig.parent / "03_fig3.csv"
 LDR_COL = -1
 col_names = ["condition", "section", "animal", "measurement"]
 
@@ -125,37 +126,14 @@ is_cols[-1] = "Interday Stability"
 activity_is = longform(activity_is, col_names=is_cols)
 sleep_is = longform(sleep_is, col_names=is_cols)
 
+# get all together for export for SNP
+processed_data_list = [activity_max_power, activity_iv, activity_is,
+                       sleep_max_power, sleep_iv, sleep_is]
+processed_data = pd.concat(processed_data_list, sort=False)
+processed_data.to_csv(save_csv)
+
 ###### Step 6 Plot
 # plot all on the same figure
-
-# tidy all the data first
-activity_dict = {"Intraday Variability": activity_iv,
-             "Periodogram Power": activity_max_power,
-             "Interdaily Stability": activity_is}
-sleep_dict = {"Intraday Variability": sleep_iv,
-             "Periodogram Power": sleep_max_power,
-             "Interdaily Stability": sleep_is}
-
-activity_plotting = pd.concat(activity_dict).reset_index(0)
-sleep_plotting = pd.concat(sleep_dict).reset_index(0)
-
-new_col_dict = {
-    "level_0": "Marker"
-}
-for df in activity_plotting, sleep_plotting:
-    df.rename(new_col_dict, axis=1, inplace=True)
-    
-data_dict = {
-    "Activity": activity_plotting,
-    "Sleep": sleep_plotting
-}
-
-plotting_data = pd.concat(data_dict).reset_index(0)
-plotting_col_dict = {
-    "level_0": "Data type"
-}
-plotting_data.rename(plotting_col_dict, axis=1, inplace=True)
-
 
 # constants
 nocols = 2
@@ -267,7 +245,4 @@ fig.suptitle("Effect on different light conditions on circadian "
 
 plt.savefig(save_fig, dpi=600)
 
-
-
-# plot
 plt.close('all')
