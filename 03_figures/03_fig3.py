@@ -26,7 +26,7 @@ idx = pd.IndexSlice
 save_fig = pathlib.Path("/Users/angusfisk/Documents/01_PhD_files/"
                         "01_projects/01_thesisdata/02_circdis/"
                         "03_analysis_outputs/03_figures/03_fig3.png")
-save_csv = save_fig.parent / "03_fig3.csv"
+save_csv = save_fig.parent / "00_csvs/03_fig3.csv"
 LDR_COL = -1
 col_names = ["condition", "section", "animal", "measurement"]
 

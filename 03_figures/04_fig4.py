@@ -110,6 +110,16 @@ scatter_data = median_long.copy()
 scatter_data.rename({"Measurement": "Median"}, axis=1, inplace=True)
 scatter_data["Count"] = count_long.iloc[:, -1]
 
+
+######## Stats ##########
+
+# start with just saving to send to snp.
+save_dir = SAVE_FIG.parent / "00_csvs"
+length_csv = save_dir / "04_fig4_length.csv"
+long_removed.to_csv(length_csv)
+scatter_csv = save_dir / "04_fig4_scatter.csv"
+scatter_data.to_csv(scatter_csv)
+
 #### Step 4 Plot all together
 
 # plotting constants

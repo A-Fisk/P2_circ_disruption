@@ -6,13 +6,18 @@
 import pathlib
 import pandas as pd
 import numpy as np
+import pingouin as pg
+import statsmodels.regression.mixed_linear_model as lm
 import matplotlib
+
+matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gs
 import matplotlib.dates as mdates
 import sys
+
 sys.path.insert(0, "/Users/angusfisk/Documents/01_PhD_files/"
-                    "07_python_package/actiPy")
+                   "07_python_package/actiPy")
 import actiPy.preprocessing as prep
 import actiPy.periodogram as per
 import actiPy.waveform as wave
@@ -72,10 +77,10 @@ for df in [activity_periods, sleep_periods]:
 
 # split based on period
 activity_split = prep.split_list_with_periods(name_df=activity_periods,
-                                             df_list=activity_dfs)
+                                              df_list=activity_dfs)
 
 sleep_split = prep.split_list_with_periods(name_df=sleep_periods,
-                                          df_list=sleep_dfs)
+                                           df_list=sleep_dfs)
 
 # find mean and sem
 # want to find the mean for each individual animal then take the mean
@@ -84,6 +89,47 @@ sleep_split = prep.split_list_with_periods(name_df=sleep_periods,
 # find means for each individual animal per condition/section
 activity_mean = wave.group_mean_df(activity_split)
 sleep_mean = wave.group_mean_df(sleep_split)
+
+########## Stats ##########
+
+# tidy data so can be fitted
+col_names = ['Protocol', 'Time', 'Animal', 'Hour', "Mean"]
+protocols = activity_split.index.get_level_values(0).unique()
+
+def clean_df(df, col_names):
+    temp_mean = df.mean(axis=1)
+    temp_mean_h = temp_mean.groupby(level=[0, 1, 2]
+                                    ).resample("H",
+                                              level=3).mean()
+    tidy_df = temp_mean_h.reset_index()
+    tidy_df.columns = col_names
+    
+    return tidy_df
+
+tidy_activity = clean_df(activity_split, col_names)
+tidy_sleep = clean_df(sleep_split, col_names)
+
+# fit two way repeated measures ANOVA to activity and sleep
+# for each protocol - three way ANOVA?
+dep_var = col_names[-1]
+subject = col_names[2]
+within = [col_names[3], col_names[1]]
+
+for protocol in protocols:
+    mask = tidy_activity[col_names[0]] == protocol
+    test_data = tidy_activity[mask]
+
+    test_rm = pg.rm_anova2(dv=dep_var,
+                           within=within,
+                           subject=subject,
+                           data=test_data)
+    pg.print_table(test_rm)
+
+# temporary - save data to have a think about how to do this - SNP wants to
+# help
+save_dir = save_fig.parent / "00_csvs/02_fig2.csv"
+stats_data = pd.concat([tidy_activity, tidy_sleep], sort=False)
+stats_data.to_csv(save_dir)
 
 # plot
 
@@ -113,59 +159,45 @@ for col, df in enumerate([activity_mean, sleep_mean]):
     for condition_no, condition_label in enumerate(condition):
         curr_ax = axis_column[condition_no]
         
-        # create subplots for the different sections
-        inner_grid = gs.GridSpecFromSubplotSpec(nrows=3,
-                                                ncols=1,
-                                                subplot_spec=curr_ax,
-                                                wspace=0,
-                                                hspace=0)
-        
         # select the data and plot on the correct axis
-        for section, grid in zip(sections, inner_grid):
+        for section in sections:
             # select the data
             mean_data = df.loc[idx[condition_label, section], cols[0]]
             sem_data = df.loc[idx[condition_label, section], cols[1]]
             
-            # add new subplot in the right position
-            ax1 = plt.Subplot(fig, grid)
-            fig.add_subplot(ax1)
-            ax1.set_yticks([])
-            
-            # remove xlabels on top 2 subplots, leave bottoms
-            if section != sections[-1]:
-                ax1.set_xticks([])
-            
             # plot the mean +/- sem on the subplot
-            ax1.plot(mean_data)
-            ax1.fill_between(mean_data.index, (mean_data-sem_data),
-                             (mean_data+sem_data), alpha=0.5)
+            curr_ax.plot(mean_data, label=section)
+            
+            curr_ax.fill_between(mean_data.index, (mean_data - sem_data),
+                                 (mean_data + sem_data), alpha=0.5)
             
             # set a grey background
-            ax1.fill_between(mean_data.between_time("12:00:00",
-                                                    "23:59:00").index,
-                             100,
-                             alpha=0.2, color='0.5')
-            
-            # set limits
-            ylim = [0, 60]
-            if col == 1:
-                ylim = [0, 1.1]
-            ax1.set(xlim=[mean_data.index[0],
+            curr_ax.fill_between(mean_data.between_time("12:00:00",
+                                                        "23:59:00").index,
+                                 100,
+                                 alpha=0.2, color='0.5')
+        
+        # set limits
+        ylim = [0, 60]
+        if col == 1:
+            ylim = [0, 1.1]
+        curr_ax.set(xlim=[mean_data.index[0],
                           mean_data.index[-1]],
-                    ylim=ylim,
-                    ylabel=section)
-            
+                    ylim=ylim)
+        
         # fix the ticks
         curr_ax.set_yticks([])
         curr_ax.set_xticks([])
         xfmt = mdates.DateFormatter("%H:%M:%S")
-        ax1.xaxis.set_major_formatter(xfmt)
-        fig.autofmt_xdate()
+        curr_ax.xaxis.set_major_formatter(xfmt)
         
         # set the title for each condition
         curr_ax.set_title(condition_label)
-        
+
+ax[0, 1].legend()
+
 # set the size of the plot and text
+fig.autofmt_xdate()
 fig.set_size_inches(8.27, 11.69)
 fig.subplots_adjust(hspace=0.5)
 fig.suptitle("Mean activity and sleep under different disruption. +/- sem",
@@ -174,3 +206,4 @@ fig.text(0.45, 0.05, "Circadian time (hours)", fontsize=10)
 
 plt.savefig(save_fig, dpi=600)
 
+plt.close('all')
