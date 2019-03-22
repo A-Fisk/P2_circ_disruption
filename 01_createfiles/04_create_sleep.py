@@ -29,7 +29,7 @@ process_kwargs = {
     "drop_level": True,
     "ldr_col": -1,
     "function": (sleep, "create_scored_df"),
-    "save_suffix": "_sleep.csv",
+    "save_suffix": ".csv",
     "savecsv": True
 }
 sleep_object.process_file(**process_kwargs)
