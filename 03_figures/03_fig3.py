@@ -147,14 +147,16 @@ sleep_max_power = longform(sl_max_power_label, col_names=power_cols)
 # going to calculate IS based on LS periodogram - can argue about
 # qp vs ls IS later
 
+# get max values from qp
+ac_qp_max = activity_qp.groupby(level=[0, 1]).max()
+sl_qp_max = sleep_qp.groupby(level=[0, 1]).max()
+
 # calculate number of data points to normalise
 activity_samples = activity_df.groupby(level=[0, 1]).count()
 sleep_samples = sleep_df.groupby(level=[0, 1]).count()
-
 # divide max by number of samples to get IS
-activity_is_raw = activity_max_power_raw / activity_samples
-sleep_is_raw = sleep_max_power_raw / sleep_samples
-
+activity_is_raw = ac_qp_max / activity_samples
+sleep_is_raw = sl_qp_max / sleep_samples
 # normalise
 activity_is_norm = activity_is_raw.groupby(level=0).apply(norm_base_mean)
 sleep_is_norm = sleep_is_raw.groupby(level=0).apply(norm_base_mean)
@@ -216,7 +218,6 @@ for mark_list, data_type in zip([ac_marks, sl_marks], data_types):
         anova_filename = curr_save_dir / "01_anova.csv"
         curr_rm.to_csv(anova_filename)
         
-
 # get all together for export for SNP
 processed_data_list = [activity_max_power, activity_iv, activity_is,
                        sleep_max_power, sleep_iv, sleep_is]
