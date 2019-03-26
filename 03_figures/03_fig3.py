@@ -5,15 +5,18 @@
 import pathlib
 import pandas as pd
 import numpy as np
+import pingouin as pg
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gs
 import matplotlib.dates as mdates
 import seaborn as sns
+
 sns.set()
 import sys
+
 sys.path.insert(0, "/Users/angusfisk/Documents/01_PhD_files/"
-                    "07_python_package/actiPy")
+                   "07_python_package/actiPy")
 import actiPy.preprocessing as prep
 import actiPy.analysis as als
 import actiPy.periodogram as per
@@ -26,9 +29,10 @@ idx = pd.IndexSlice
 save_fig = pathlib.Path("/Users/angusfisk/Documents/01_PhD_files/"
                         "01_projects/01_thesisdata/02_circdis/"
                         "03_analysis_outputs/03_figures/03_fig3.png")
-save_csv = save_fig.parent / "00_csvs/03_fig3.csv"
+save_csv_dir = save_fig.parent / "00_csvs/"
 LDR_COL = -1
-col_names = ["condition", "section", "animal", "measurement"]
+col_names = ["protocol", "time", "animal", "measurement"]
+
 
 def longform(df,
              col_names: list):
@@ -36,6 +40,14 @@ def longform(df,
     new_df.columns = col_names
     
     return new_df
+
+
+def norm_base_mean(protocol_df, baseline_str: str = "Baseline"):
+    base_values = protocol_df.loc[idx[:, baseline_str], :]
+    normalise_value = base_values.mean().mean()
+    normalised_df = (protocol_df / normalise_value) * 100
+    return normalised_df
+
 
 ###### Step 2 tidy data
 #  import the files to read
@@ -75,36 +87,60 @@ sleep_df.drop(ldr_label, axis=1, inplace=True)
 
 ######## Step 3 Calculate IV
 # first step need IV equation
-activity_iv = als.intradayvar(activity_df, level=[0, 1])
-sleep_iv = als.intradayvar(sleep_df, level=[0, 1])
+activity_iv_raw = als.intradayvar(activity_df, level=[0, 1])
+sleep_iv_raw = als.intradayvar(sleep_df, level=[0, 1])
 
 iv_cols = col_names.copy()
 iv_cols[-1] = "Intraday Variability"
 
-activity_iv = longform(activity_iv, col_names=iv_cols)
-sleep_iv = longform(sleep_iv, col_names=iv_cols)
+# normalise to mean
+activity_iv_norm = activity_iv_raw.groupby(level=0).apply(norm_base_mean)
+sleep_iv_norm = sleep_iv_raw.groupby(level=0).apply(norm_base_mean)
+
+# fix cols for stats
+ac_iv_label = activity_iv_norm.groupby(level=0).apply(prep.label_anim_cols)
+sl_iv_label = sleep_iv_norm.groupby(level=0).apply(prep.label_anim_cols)
+
+# tidy for plotting
+activity_iv = longform(ac_iv_label, col_names=iv_cols)
+sleep_iv = longform(sl_iv_label, col_names=iv_cols)
 
 ####### Step 4 Calculate Periodogram power
+
+# calculate the enright periodogram
+activity_qp = activity_df.groupby(level=[0, 1]).apply(per._enright_periodogram,
+                                                   level=[0,1])
+sleep_qp = sleep_df.groupby(level=[0, 1]).apply(per._enright_periodogram,
+                                                level=[0, 1])
+
 # calculate LS periodogram
 activity_power = activity_df.groupby(level=[0, 1]).apply(per.get_period,
-                                               return_power=True,
-                                                drop_lastcol=False)
+                                                         return_power=True,
+                                                         drop_lastcol=False)
 sleep_power = sleep_df.groupby(level=[0, 1]).apply(per.get_period,
                                                    return_power=True,
                                                    drop_lastcol=False)
 for df in activity_power, sleep_power:
     df.columns = df.columns.droplevel(1)
-    
-# calculate max periodogram power baseline-dsirupted
+
+# calculate max periodogram power baseline-disrupted
 activity_max_power_raw = activity_power.groupby(level=[0, 1]).max()
 sleep_max_power_raw = sleep_power.groupby(level=[0, 1]).max()
+
+# normalise
+activity_max_norm = activity_max_power_raw.groupby(level=0).apply(
+    norm_base_mean)
+sleep_max_norm = sleep_max_power_raw.groupby(level=0).apply(norm_base_mean)
 
 # turn into longform
 power_cols = col_names.copy()
 power_cols[-1] = "Periodogram Power"
-
-activity_max_power = longform(activity_max_power_raw, col_names=power_cols)
-sleep_max_power = longform(sleep_max_power_raw, col_names=power_cols)
+ac_max_power_label = activity_max_norm.groupby(level=0
+                                               ).apply(prep.label_anim_cols)
+sl_max_power_label = sleep_max_norm.groupby(level=0
+                                            ).apply(prep.label_anim_cols)
+activity_max_power = longform(ac_max_power_label, col_names=power_cols)
+sleep_max_power = longform(sl_max_power_label, col_names=power_cols)
 
 ####### Step 5 Calculate IS
 # Calculate IS baseline-disrupted
@@ -116,21 +152,77 @@ activity_samples = activity_df.groupby(level=[0, 1]).count()
 sleep_samples = sleep_df.groupby(level=[0, 1]).count()
 
 # divide max by number of samples to get IS
-activity_is = activity_max_power_raw / activity_samples
-sleep_is = sleep_max_power_raw / sleep_samples
+activity_is_raw = activity_max_power_raw / activity_samples
+sleep_is_raw = sleep_max_power_raw / sleep_samples
+
+# normalise
+activity_is_norm = activity_is_raw.groupby(level=0).apply(norm_base_mean)
+sleep_is_norm = sleep_is_raw.groupby(level=0).apply(norm_base_mean)
 
 # turn into longform data
 is_cols = col_names.copy()
 is_cols[-1] = "Interday Stability"
+ac_is_label = activity_is_norm.groupby(level=0).apply(prep.label_anim_cols)
+sl_is_label = sleep_is_norm.groupby(level=0).apply(prep.label_anim_cols)
+activity_is = longform(ac_is_label, col_names=is_cols)
+sleep_is = longform(sl_is_label, col_names=is_cols)
 
-activity_is = longform(activity_is, col_names=is_cols)
-sleep_is = longform(sleep_is, col_names=is_cols)
+####### Stats #######
+subject = col_names[2]
+within = col_names[1]
+between = col_names[0]
+protocols = ac_iv_label.index.get_level_values(0).unique()
+ac_marks = [activity_iv, activity_is, activity_max_power]
+sl_marks = [sleep_iv, sleep_is, sleep_max_power]
+data_types = ["01_activity", "02_sleep"]
+mark_cols = [iv_cols, is_cols, power_cols]
+save_test_dir = save_csv_dir / "03_fig3"
+save_dir_names = ['01_iv', '02_is', '03_per_power']
+
+# loop through all the markers, save all the output files
+mark_dict = {}
+# loop through and apply rm to each marker
+for mark_list, data_type in zip([ac_marks, sl_marks], data_types):
+    save_testtype_dir = save_test_dir / data_type
+    for no, mark_df in enumerate(mark_list):
+        cols = mark_cols[no]
+        curr_dep_var = cols[-1]
+        curr_rm = pg.mixed_anova(dv=curr_dep_var,
+                                 within=within,
+                                 subject=subject,
+                                 between=between,
+                                 data=mark_df)
+        print(curr_dep_var)
+        pg.print_table(curr_rm)
+        ph_dict = {}
+# loop through the post hoc tests too
+        for protocol in protocols:
+            mask = mark_df[between] == protocol
+            post_hoc_data = mark_df[mask]
+            curr_ph = pg.pairwise_tukey(dv=curr_dep_var,
+                                        between=within,
+                                        data=post_hoc_data)
+            print(protocol)
+            pg.print_table(curr_ph)
+# save the tests into a dict
+            ph_dict[protocol] = curr_ph
+        test_name = save_dir_names[no]
+        curr_save_dir = save_testtype_dir / test_name
+        
+        ph_savename = curr_save_dir / '02_posthoc.csv'
+        ph_df = pd.concat(ph_dict)
+        ph_df.to_csv(ph_savename)
+        
+        anova_filename = curr_save_dir / "01_anova.csv"
+        curr_rm.to_csv(anova_filename)
+        
 
 # get all together for export for SNP
 processed_data_list = [activity_max_power, activity_iv, activity_is,
                        sleep_max_power, sleep_iv, sleep_is]
 processed_data = pd.concat(processed_data_list, sort=False)
-processed_data.to_csv(save_csv)
+save_dfcsv = save_csv_dir / "03_fig3.csv"
+processed_data.to_csv(save_dfcsv)
 
 ###### Step 6 Plot
 # plot all on the same figure
@@ -145,13 +237,18 @@ activity_list = [activity_iv, activity_max_power, activity_is]
 sleep_list = [sleep_iv, sleep_max_power, sleep_is]
 data_type_list = [activity_list, sleep_list]
 sections = activity_iv[section_col].unique()
+capsize = 0.2
+errwidth = 1
+dodge = 0.5
+marker_size = 3
+col_title_size = 10
+label_size = 8
 
 # create figure with right number of rows and cols
 fig, ax = plt.subplots(nrows=len(activity_list), ncols=nocols)
 
 # set default font size
 plt.rcParams.update({"font.size": 10})
-label_size = 8
 
 # loop throuh sleep/activity in different columns
 for col_no, data_list in enumerate(data_type_list):
@@ -163,85 +260,48 @@ for col_no, data_list in enumerate(data_type_list):
         measurement_col = data.columns[-1]
         curr_ax = axis_column[row_no]
         conditions = data[condition_col].unique()
-
-        # use gridspec from subplot spec to put in the right number of subplots
-        inner_grid =  gs.GridSpecFromSubplotSpec(nrows=1,
-                                                 ncols=4,
-                                                 subplot_spec=curr_ax,
-                                                 wspace=0,
-                                                 hspace=0)
-
-        # select correct sub plot and slice the data
-        for condition, grid in zip(conditions, inner_grid):
-            
-            # slice the data
-            mask = data[condition_col] == condition
-            condition_data = data.where(mask).dropna()
-            
-            # create the new sub sub plot
-            ax1 = plt.Subplot(fig, grid)
-            fig.add_subplot(ax1)
-
-            # plot the connecting lines for each animal
-            sns.pointplot(x=section_col, y=measurement_col, hue=animal_col,
-                          data=condition_data, ax=ax1, color="b", markers="None")
-            # plot the summary values
-            sns.pointplot(x=section_col, y=measurement_col, data=condition_data,
-                          ax=ax1, ci=sem, join=False, color='k', capsize=0.2,
-                          errwidth=1)
-            
-            # set the alpha for the connecting lines
-            mean_dots = ax1.get_children()[6]
-            connecting_lines = ax1.get_children()[7:28:4]
-            plt.setp(connecting_lines, alpha=0.5, color='b')
-            # all_lines = ax1.get_children()
-            # plt.setp(all_lines, alpha=0)
-            # test_child = ax1.get_children()[11]
-            # plt.setp(test_child, alpha=1)
-            
-            # remove the legend
-            ax_leg = ax1.legend()
-            ax_leg.remove()
-            
-            # remove the axis label
-            ax1.yaxis.label.set_visible(False)
-            ax1.set_xticklabels(ax1.get_xticklabels(), visible=False)
-            
-            # set the conditions on the bottom row
-            if row_no == 2:
-                ax1.set_xticklabels(ax1.get_xticklabels(), visible=True,
-                                    rotation=45, size=label_size)
-            ax1.set_xlabel("")
-            
-            # set the yaxis
-            if condition != conditions[0]:
-                ax1.set_yticklabels(ax1.get_yticklabels(), visible=False)
-            ax1.tick_params(axis="y", which="major", labelsize=label_size)
-            min = data.min()[measurement_col]
-            max = data.max()[measurement_col]
-            ax1.set(ylim=[min, max])
-
-            # label the columns with the conditions
-            if row_no == 0:
-                ax1.set_title(condition, rotation=45, va='bottom',
-                              size=label_size)
-                
-        # remove the subplot level markers
-        curr_ax.set_xticklabels(curr_ax.get_xticklabels(), visible=False)
-        curr_ax.set_yticks([])
         
-        # label the measurement type on LHS
-        curr_ax.yaxis.set_label_coords(-0.1, 0.5)
+        # plot using seaborn
+        sns.pointplot(x=condition_col, y=measurement_col,
+                      hue=section_col, data=data, ax=curr_ax,
+                      join=False, capsize=capsize,
+                      errwidth=errwidth, dodge=dodge,
+                      ci=sem)
+        
+        sns.swarmplot(x=condition_col, y=measurement_col,
+                      hue=section_col, data=data, ax=curr_ax,
+                      dodge=dodge, size=marker_size)
+        
+        # remove the legend
+        ax_leg = curr_ax.legend()
+        ax_leg.remove()
+        
+        # tidy axis
+        ylim = [0, 150]
+        if row_no == 0:
+            ylim = [0, 200]
+        curr_ax.set(xlabel="")
+        # ylim=ylim)
+        curr_ax.tick_params(axis='both', which='major', labelsize=label_size)
         if col_no == 0:
-            curr_ax.set_ylabel(measurement_col, size=label_size)
-        
+            curr_ax.set_ylabel(measurement_col, fontsize=label_size)
+        else:
+            curr_ax.set_ylabel("")
+
+# set the legend
+handles, legends = curr_ax.get_legend_handles_labels()
+fig.legend(handles=handles[:3], loc=(0.85, 0.9), fontsize=label_size,
+           markerscale=0.5)
+
 # set sizing parameters
-plt.subplots_adjust(hspace=0, wspace=0.1)
+plt.subplots_adjust(hspace=0.3, wspace=0.2)
 fig.set_size_inches(8.27, 11.69)
 
 # set titles
 fig.suptitle("Effect on different light conditions on circadian "
              "disruption markers. Mean +/- SEM")
+fig.text(0.25, 0.85, "Activity")
+fig.text(0.75, 0.85, "Sleep")
 
 plt.savefig(save_fig, dpi=600)
 
