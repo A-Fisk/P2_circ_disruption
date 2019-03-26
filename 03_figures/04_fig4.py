@@ -6,22 +6,22 @@
 
 #### Imports
 import pathlib
-import pandas as pd
-import numpy as np
-import matplotlib
-import matplotlib.pyplot as plt
+import pingouin as pg
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
 import matplotlib.gridspec as gs
-import matplotlib.dates as mdates
-from matplotlib.lines import Line2D
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import seaborn as sns
+from matplotlib.lines import Line2D
+
 sns.set()
 import sys
+
 sys.path.insert(0, "/Users/angusfisk/Documents/01_PhD_files/"
-                    "07_python_package/actiPy")
+                   "07_python_package/actiPy")
 import actiPy.preprocessing as prep
-import actiPy.analysis as als
-import actiPy.periodogram as per
-import actiPy.waveform as wave
 
 #### CONSTANTS
 INDEX_COLS = [0, 1]
@@ -30,7 +30,10 @@ SAVE_FIG = pathlib.Path("/Users/angusfisk/Documents/01_PhD_files/"
                         "01_projects/01_thesisdata/02_circdis/"
                         "03_analysis_outputs/03_figures/04_fig4.png")
 LDR_COL = -1
-COL_NAMES = ["Data type", "Condition", "Section", "Animal", "Measurement"]
+COL_NAMES = ["Data type", "Protocol", "Time", "Animal", "Measurement"]
+save_csv_dir = SAVE_FIG.parent / "00_csvs/04_fig4"
+
+
 def longform(df,
              col_names: list):
     new_df = df.stack().reset_index().drop("index", axis=1)
@@ -85,31 +88,40 @@ all_data = pd.concat(data_dict)
 data_type = all_data.index.get_level_values(0).unique()
 conditions = all_data.index.get_level_values(1).unique()
 sections = all_data.index.get_level_values(2).unique()
-
 removed_data = all_data.loc[idx[:, :, :sections[-2]], :]
 
-long_removed = longform(removed_data, col_names=COL_NAMES)
+# relabel animal names
+removed_rename = removed_data.groupby(level=[0, 1, 2]
+                                      ).apply(prep.label_anim_cols,
+                                              level_index=1)
+
+long_removed = longform(removed_rename, col_names=COL_NAMES)
 
 #### Step 3 Calculate length per day and count per day
 
 # select each day - resample using median
 removed_data.resample("D", level=3).median()
 median_data = removed_data.groupby(level=[0, 1, 2]
-                                  ).resample("D", level=3
-                                             ).median()
+                                   ).resample("D", level=3
+                                              ).median()
+med_relabel = median_data.groupby(level=[0, 1, 2]
+                                  ).apply(prep.label_anim_cols,
+                                          level_index=1)
 # count each day
 above_zero = (removed_data > 0).astype(bool)
 count_data = above_zero.groupby(level=[0, 1, 2]
                                 ).resample("D", level=3
                                            ).sum()
+count_relabel = count_data.groupby(level=[0, 1, 2]
+                                   ).apply(prep.label_anim_cols,
+                                           level_index=1)
 
-median_long = longform(median_data, col_names=COL_NAMES)
-count_long = longform(count_data, col_names=COL_NAMES)
+median_long = longform(med_relabel, col_names=COL_NAMES)
+count_long = longform(count_relabel, col_names=COL_NAMES)
 
 scatter_data = median_long.copy()
 scatter_data.rename({"Measurement": "Median"}, axis=1, inplace=True)
 scatter_data["Count"] = count_long.iloc[:, -1]
-
 
 ######## Stats ##########
 
@@ -119,6 +131,85 @@ length_csv = save_dir / "04_fig4_length.csv"
 long_removed.to_csv(length_csv)
 scatter_csv = save_dir / "04_fig4_scatter.csv"
 scatter_data.to_csv(scatter_csv)
+
+
+# activity episodes?
+ac_mask = scatter_data.iloc[:, 0] == "activity"
+activity_data = scatter_data[ac_mask]
+sl_mask = scatter_data.iloc[:, 0] == 'sleep'
+sleep_data = scatter_data[sl_mask]
+
+median = "Median"
+count = "Count"
+within = COL_NAMES[2]
+between = COL_NAMES[1]
+subjects = COL_NAMES[3]
+
+act_test_dir = save_csv_dir / "01_activity"
+sl_test_dir = save_csv_dir / "02_sleep"
+
+# 1. First main question - is the duration of episodes significantly affected
+# by time and by protocol
+# ANOVA on median length per day
+
+med_csv = "01_median.csv"
+ac_med_file = act_test_dir / med_csv
+ac_med_rm = pg.mixed_anova(dv=median,
+                       within=within,
+                       between=between,
+                       subject=subjects,
+                       data=activity_data)
+pg.print_table(ac_med_rm)
+ac_med_rm.to_csv(ac_med_file)
+
+sl_med_file = sl_test_dir / med_csv
+sl_med_rm =  pg.mixed_anova(dv=median,
+                       within=within,
+                       between=between,
+                       subject=subjects,
+                       data=sleep_data)
+pg.print_table(sl_med_rm)
+sl_med_rm.to_csv(sl_med_file)
+
+# post hoc test for sleep med
+protocols = sleep_data[between].unique()
+ph_dict = {}
+for protocol in protocols:
+    protocol_mask = sleep_data[between] == protocol
+    protocol_df = sleep_data[protocol_mask]
+    
+    ph = pg.pairwise_tukey(dv=median,
+                          between=within,
+                          data=protocol_df)
+    print(protocol)
+    pg.print_table(ph)
+    
+    ph_dict[protocol] = ph
+ph_df = pd.concat(ph_dict)
+ph_name = sl_test_dir / "03_med_ph.csv"
+ph_df.to_csv(ph_name)
+
+# 2. Are the number of episodes different?
+
+count_csv = "02_count.csv"
+ac_ct_file = act_test_dir / count_csv
+ac_count_rm = pg.mixed_anova(dv=count,
+                       within=within,
+                       between=between,
+                       subject=subjects,
+                       data=activity_data)
+pg.print_table(ac_count_rm)
+ac_count_rm.to_csv(ac_ct_file)
+
+sl_ct_file = sl_test_dir / count_csv
+sl_count_rm =  pg.mixed_anova(dv=count,
+                       within=within,
+                       between=between,
+                       subject=subjects,
+                       data=sleep_data)
+pg.print_table(sl_count_rm)
+sl_count_rm.to_csv(sl_ct_file)
+
 
 #### Step 4 Plot all together
 
@@ -146,7 +237,7 @@ for row in range(4):
         add_ax = plt.subplot(upper_grid[row, col])
         col_axes.append(add_ax)
     histogram_axes.append(col_axes)
-    
+
 histogram_axes_array = np.array(histogram_axes)
 
 data = long_removed
@@ -162,30 +253,30 @@ for col_no, data_type in enumerate(data_types):
     
     # select the column
     axis_column = histogram_axes_array[:, col_no]
-
+    
     # select just the data type
     # need to grab data type here as pir_data_sleep
     data_sep_type = data[data[data_type_col] == data_type]
     conditions = data_sep_type[condition_col].unique()
-
+    
     # loop through all the conditions
     for row_no, condition in enumerate(conditions):
         
         curr_ax = axis_column[row_no]
-
+        
         # select the data
         curr_data = data[data[condition_col] == condition]
         baseline_data = curr_data[curr_data[section_col]
-                                    == sections[0]]
+                                  == sections[0]]
         disrupted_data = curr_data[curr_data[section_col]
-                                        == sections[1]]
-
+                                   == sections[1]]
+        
         ax1 = curr_ax
         ax1.hist([baseline_data[measurement_col],
                   disrupted_data[measurement_col]],
-                  # alpha=0.5,
-                  color=["k", 'b'],
-                  bins=bins, density=True)
+                 # alpha=0.5,
+                 color=["k", 'b'],
+                 bins=bins, density=True)
         # ax1.hist(disrupted_data[measurement_col], alpha=0.3, color="b",
         #          bins=bins, density=True)
         
@@ -198,13 +289,13 @@ for col_no, data_type in enumerate(data_types):
             ax1.set_xticklabels(ax1.get_xticklabels(), visible=False)
         else:
             ax1.set_xlabel("Bout duration, log secs", size=label_size)
-            
+        
         if condition == conditions[0]:
             ax1.set_title("Log histogram of bout duration", size=label_size)
-            
+        
         ax1.text(0.8, 0.9, condition, transform=ax1.transAxes,
                  size=label_size)
-        
+
 fig.text(0.07, 0.69, "Normalised density", rotation=90, size=label_size)
 fig.text(0.5, 0.69, "Normalised density", rotation=90, size=label_size)
 
@@ -239,7 +330,7 @@ for sep_col, data_type in enumerate(data_types):
                                                     subplot_spec=curr_scatter_axis,
                                                     wspace=0,
                                                     hspace=0)
-
+    
     # grab the conditions to avoid sleep/activity missing
     conditions = data_sep_type[condition_col].unique()
     
@@ -249,7 +340,7 @@ for sep_col, data_type in enumerate(data_types):
         # select the data
         condition_scatter = data_sep_type[
             data_sep_type[condition_col] == condition
-        ]
+            ]
         baseline_data = condition_scatter[condition_scatter[section_col] ==
                                           sections[0]]
         disrupted_data = condition_scatter[condition_scatter[section_col] ==
@@ -266,7 +357,7 @@ for sep_col, data_type in enumerate(data_types):
         
         # try with a kdeplot instead
         sns.kdeplot(baseline_data[count_col], baseline_data[median_col],
-                    shade=False, shade_lowest=False, cmap="Greys",
+                    shade=True, shade_lowest=True, cmap="Greys",
                     ax=ax2, alpha=0.8)
         sns.kdeplot(disrupted_data[count_col], disrupted_data[median_col],
                     shade=False, shade_lowest=False, cmap="Blues",
@@ -277,7 +368,7 @@ for sep_col, data_type in enumerate(data_types):
                 xlim=[xmin, xmax],
                 facecolor='w')
         ax2.tick_params(axis='both', which='major', labelsize=label_size)
-
+        
         # remove the labels
         if condition != conditions[0]:
             ax2.set_yticks([])
@@ -291,7 +382,7 @@ for sep_col, data_type in enumerate(data_types):
     # remove curr axis labels
     curr_scatter_axis.set_yticks([])
     curr_scatter_axis.set_xticks([])
-
+    
     # set axis label
     curr_scatter_axis.set_xlabel("Number of episodes per day", size=label_size)
     curr_scatter_axis.set_ylabel("Median length of episodes per day, secs",
@@ -305,10 +396,10 @@ fig.text(0.75, 0.9, "Sleep", size=label_size)
 
 # create the legend
 legend_lines = [Line2D([0], [0], color='w', alpha=0.8,
-                        marker='o', markersize=10, label="Baseline",
+                       marker='o', markersize=10, label="Baseline",
                        markerfacecolor='0.5'),
                 Line2D([0], [0], color='w', alpha=0.4, marker='o',
-                        markersize=10, label="Disrupted",
+                       markersize=10, label="Disrupted",
                        markerfacecolor='b')]
 fig.legend(handles=legend_lines, loc=(0.87, 0.9), fontsize=label_size,
            frameon=False)
