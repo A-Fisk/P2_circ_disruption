@@ -24,6 +24,12 @@ import actiPy.waveform as wave
 
 # import the files we are going to read
 
+def norm_base_mean(protocol_df, baseline_str: str = "Baseline"):
+    base_values = protocol_df.loc[idx[:, baseline_str], :]
+    normalise_value = base_values.mean()[0]
+    normalised_df = (protocol_df / normalise_value) * 100
+    return normalised_df
+
 # define constants
 index_cols = [0, 1]
 idx = pd.IndexSlice
@@ -73,7 +79,7 @@ sleep_periods = pd.concat(sleep_dict)
 
 # set all baseline periods to be 24 hours
 for df in [activity_periods, sleep_periods]:
-    df.loc[idx[:, "baseline"], :] = pd.Timedelta("1D")
+    df.loc[idx[:, "Baseline"], :] = pd.Timedelta("1D")
 
 # split based on period
 activity_split = prep.split_list_with_periods(name_df=activity_periods,
@@ -87,8 +93,11 @@ sleep_split = prep.split_list_with_periods(name_df=sleep_periods,
 # of the aggregate animal means and sem of them
 
 # find means for each individual animal per condition/section
-activity_mean = wave.group_mean_df(activity_split)
-sleep_mean = wave.group_mean_df(sleep_split)
+activity_mean_raw = wave.group_mean_df(activity_split)
+sleep_mean_raw = wave.group_mean_df(sleep_split)
+
+activity_mean = activity_mean_raw.groupby(level=0).apply(norm_base_mean)
+sleep_mean = sleep_mean_raw.groupby(level=0).apply(norm_base_mean)
 
 ########## Stats ##########
 
@@ -114,16 +123,111 @@ tidy_sleep = clean_df(sleep_split, col_names)
 dep_var = col_names[-1]
 subject = col_names[2]
 within = [col_names[3], col_names[1]]
+between = col_names[0]
+protocols = activity_mean.index.get_level_values(0).unique()
+hours = tidy_activity["Hour"].unique()
 
+save_test_dir = save_fig.parent / "00_csvs/02_fig2"
+
+# 1. Do we have different effects of protocolxtimexhour on activity?
+# 3 way anova
+import statsmodels.stats.anova as smav
+import statsmodels.formula.api as smf
+import pingouin as pg
+
+
+# testing activity
+act_test_dir = save_test_dir / "01_activity"
+
+three_way_model = smf.ols("Mean ~ C(Hour)*C(Time)*C(Protocol)",
+                          tidy_activity
+                          ).fit()
+three_way_table = smav.anova_lm(three_way_model)
+three_way_name = act_test_dir / "01_threewayanova.csv"
+three_way_table.to_csv(three_way_name)
+print(three_way_model.summary())
+
+curr_data = tidy_activity
+
+# post hoc 2 way ANOVAs
 for protocol in protocols:
-    mask = tidy_activity[col_names[0]] == protocol
-    test_data = tidy_activity[mask]
+    mask = curr_data["Protocol"] == protocol
+    protocol_df = curr_data[mask]
+    two_way_model = smf.ols("Mean ~ C(Hour)*C(Time)",
+                            protocol_df
+                            ).fit()
+    two_way_df = smav.anova_lm(two_way_model, typ=2)
+    print(protocol)
+    print(two_way_model.summary())
+    
+    # post hoc tukeys
+    ph_dict = {}
+    for hour in hours:
+        hour_mask = protocol_df["Hour"] == hour
+        hour_df = protocol_df[hour_mask]
+        ph_t = pg.pairwise_tukey(dv=dep_var,
+                                 between="Time",
+                                 data=hour_df)
+        print(hour)
+        pg.print_table(ph_t)
+        ph_dict[hour] = ph_t
+    ph_df = pd.concat(ph_dict)
+    
+    curr_test_dir = act_test_dir / protocol
+    ph_test_name = curr_test_dir / "02_posthoc.csv"
+    ph_df.to_csv(ph_test_name)
+    two_way_name = curr_test_dir / "01_anova.csv"
+    two_way_df.to_csv(two_way_name)
+    # to csv
+ 
 
-    test_rm = pg.rm_anova2(dv=dep_var,
-                           within=within,
-                           subject=subject,
-                           data=test_data)
-    pg.print_table(test_rm)
+# testing sleep
+sleep_test_dir = save_test_dir / "02_sleep"
+
+three_way_model = smf.ols("Mean ~ C(Hour)*C(Time)*C(Protocol)",
+                          tidy_sleep
+                          ).fit()
+three_way_table = smav.anova_lm(three_way_model)
+three_way_name = sleep_test_dir / "01_threewayanova.csv"
+three_way_table.to_csv(three_way_name)
+print(three_way_model.summary())
+
+curr_data = tidy_sleep
+
+# post hoc 2 way ANOVAs
+for protocol in protocols:
+    mask = curr_data["Protocol"] == protocol
+    protocol_df = curr_data[mask]
+    two_way_model = smf.ols("Mean ~ C(Hour)*C(Time)",
+                            protocol_df
+                            ).fit()
+    two_way_df = smav.anova_lm(two_way_model, typ=2)
+    print(protocol)
+    print(two_way_model.summary())
+    
+   tePlum1!
+# post hoc tukeys
+    ph_dict = {}
+    for hour in hours:
+        hour_mask = protocol_df["Hour"] == hour
+        hour_df = protocol_df[hour_mask]
+        ph_t = pg.pairwise_tukey(dv=dep_var,
+                                 between="Time",
+                                 data=hour_df)
+        print(hour)
+        pg.print_table(ph_t)
+        ph_dict[hour] = ph_t
+    ph_df = pd.concat(ph_dict)
+    
+    curr_test_dir = sleep_test_dir / protocol
+    ph_test_name = curr_test_dir / "02_posthoc.csv"
+    ph_df.to_csv(ph_test_name)
+    two_way_name = curr_test_dir / "01_anova.csv"
+    two_way_df.to_csv(two_way_name)
+    # to csv
+ 
+    # to csv of two way
+# to csv
 
 # temporary - save data to have a think about how to do this - SNP wants to
 # help
@@ -174,13 +278,13 @@ for col, df in enumerate([activity_mean, sleep_mean]):
             # set a grey background
             curr_ax.fill_between(mean_data.between_time("12:00:00",
                                                         "23:59:00").index,
-                                 100,
+                                 500,
                                  alpha=0.2, color='0.5')
         
         # set limits
-        ylim = [0, 60]
+        ylim = [0, 300]
         if col == 1:
-            ylim = [0, 1.1]
+            ylim = [0, 200]
         curr_ax.set(xlim=[mean_data.index[0],
                           mean_data.index[-1]],
                     ylim=ylim)
