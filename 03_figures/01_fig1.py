@@ -66,6 +66,7 @@ actogram_kwargs = {
     "set_file_title": False,
     "linewidth": 0.1,
 }
+timelabelsize=6
 
 # initialise figure
 fig = plt.figure()
@@ -88,11 +89,14 @@ for condition, axis in zip(conditions, activity_axes):
              title=condition)
     
     # plot actogram
-    aplot._actogram_plot_from_df(data, animal, fig=fig, subplot=axis,
-                                 timeaxis=True, **actogram_kwargs)
-
+    afig, acax = aplot._actogram_plot_from_df(data,
+                                              animal,
+                                              fig=fig,
+                                              subplot=axis,
+                                              timeaxis=True,
+                                              **actogram_kwargs)
     # tidy spacing labels and axis
-
+    acax.tick_params(axis="x", which='major', labelsize=timelabelsize)
 
 # create the right column for sleep
 sleep_grid = gs.GridSpec(nrows=len(conditions), ncols=1, figure=fig,
@@ -112,12 +116,16 @@ for condition, axis_1 in zip(conditions, sleep_axes):
                title=condition)
     
     # plot
-    aplot._actogram_plot_from_df(sleep_data, animal, fig=fig, subplot=axis_1,
+    sub_fig, last_ax  = aplot._actogram_plot_from_df(sleep_data,
+                                 animal,
+                                 fig=fig,
+                                 subplot=axis_1,
                                  timeaxis=True,
-                                 ylim=sleep_ylim, **actogram_kwargs)
+                                 ylim=sleep_ylim,
+                                 **actogram_kwargs)
+
+    last_ax.tick_params(axis="x", which='major', labelsize=timelabelsize)
     
-
-
 fig.set_size_inches(8.27, 11.69)
 
 plt.savefig(save_fig, dpi=1000)
