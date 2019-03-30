@@ -150,6 +150,7 @@ print(three_way_model.summary())
 curr_data = tidy_activity
 
 # post hoc 2 way ANOVAs
+ph_df_dict_act = {}
 for protocol in protocols:
     mask = curr_data["Protocol"] == protocol
     protocol_df = curr_data[mask]
@@ -172,6 +173,7 @@ for protocol in protocols:
         pg.print_table(ph_t)
         ph_dict[hour] = ph_t
     ph_df = pd.concat(ph_dict)
+    ph_df_dict_act[protocol] = ph_df
     
     curr_test_dir = act_test_dir / protocol
     ph_test_name = curr_test_dir / "02_posthoc.csv"
@@ -195,6 +197,7 @@ print(three_way_model.summary())
 curr_data = tidy_sleep
 
 # post hoc 2 way ANOVAs
+ph_df_dict_sleep = {}
 for protocol in protocols:
     mask = curr_data["Protocol"] == protocol
     protocol_df = curr_data[mask]
@@ -205,7 +208,6 @@ for protocol in protocols:
     print(protocol)
     print(two_way_model.summary())
     
-   tePlum1!
 # post hoc tukeys
     ph_dict = {}
     for hour in hours:
@@ -218,6 +220,7 @@ for protocol in protocols:
         pg.print_table(ph_t)
         ph_dict[hour] = ph_t
     ph_df = pd.concat(ph_dict)
+    ph_df_dict_sleep[protocol] = ph_df
     
     curr_test_dir = sleep_test_dir / protocol
     ph_test_name = curr_test_dir / "02_posthoc.csv"
@@ -243,6 +246,12 @@ sleep_conditions = sleep_mean.index.get_level_values(0).unique()
 both_conditions = [activity_conditions, sleep_conditions]
 sections = activity_mean.index.get_level_values(1).unique()
 cols = activity_mean.columns
+min_30 = pd.Timedelta("30m")
+ph_df_both = [ph_df_dict_act, ph_df_dict_sleep]
+sig_val = 0.05
+sig_indexlevel_ph_df = 0
+sig_yvals = [300, 175]
+p_val_col = "p-tukey"
 
 # create figures
 fig, ax = plt.subplots(nrows=len(activity_conditions),
@@ -282,7 +291,7 @@ for col, df in enumerate([activity_mean, sleep_mean]):
                                  alpha=0.2, color='0.5')
         
         # set limits
-        ylim = [0, 300]
+        ylim = [0, 350]
         if col == 1:
             ylim = [0, 200]
         curr_ax.set(xlim=[mean_data.index[0],
@@ -297,6 +306,31 @@ for col, df in enumerate([activity_mean, sleep_mean]):
         
         # set the title for each condition
         curr_ax.set_title(condition_label)
+
+        # get xvalues where significant
+        ph_df_curr = ph_df_both[col]
+        ph_df_protocol = ph_df_curr[condition_label]
+        sig_mask = ph_df_protocol.loc[:, p_val_col] < sig_val
+        ph_sig_times = ph_df_protocol[sig_mask
+                       ].loc[idx[:, sig_index_ph_df], :
+                       ].index.get_level_values(0)
+
+        print(condition_label)
+        sig_yval_curr = sig_yvals[col]
+        # draw line at points of significance
+        for xval in ph_sig_times:
+            print(xval)
+            hxvals = [(xval - min_30), (xval + min_30)]
+            hxvals_shift = [x + min_30 for x in hxvals]
+            hxvals_num = [mdates.date2num(x) for x in hxvals_shift]
+            hxvals_transformed = curr_ax.transLimits.transform(
+                [(hxvals_num[0], 0),
+                 (hxvals_num[1], 0)])
+            hxvals_trans_xvals = hxvals_transformed[:, 0]
+            curr_ax.axhline(sig_yval_curr,
+                            xmin=hxvals_trans_xvals[0],
+                            xmax=hxvals_trans_xvals[1])
+
 
 ax[0, 1].legend()
 
