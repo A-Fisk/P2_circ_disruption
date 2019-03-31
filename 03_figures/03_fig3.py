@@ -182,10 +182,11 @@ save_test_dir = save_csv_dir / "03_fig3"
 save_dir_names = ['01_iv', '02_is', '03_per_power']
 
 # loop through all the markers, save all the output files
-mark_dict = {}
+ph_df_type_dict = {}
 # loop through and apply rm to each marker
 for mark_list, data_type in zip([ac_marks, sl_marks], data_types):
     save_testtype_dir = save_test_dir / data_type
+    ph_df_markers_dict = {}
     for no, mark_df in enumerate(mark_list):
         cols = mark_cols[no]
         curr_dep_var = cols[-1]
@@ -208,16 +209,23 @@ for mark_list, data_type in zip([ac_marks, sl_marks], data_types):
             pg.print_table(curr_ph)
 # save the tests into a dict
             ph_dict[protocol] = curr_ph
+        
         test_name = save_dir_names[no]
         curr_save_dir = save_testtype_dir / test_name
         
         ph_savename = curr_save_dir / '02_posthoc.csv'
         ph_df = pd.concat(ph_dict)
+        ph_df_markers_dict[curr_dep_var] = ph_df
         ph_df.to_csv(ph_savename)
         
         anova_filename = curr_save_dir / "01_anova.csv"
         curr_rm.to_csv(anova_filename)
-        
+    
+    ph_df_markers_df = pd.concat(ph_df_markers_dict)
+    ph_df_type_dict[data_type] = ph_df_markers_df
+
+ph_df_bothtypes = pd.concat(ph_df_type_dict)
+
 # get all together for export for SNP
 processed_data_list = [activity_max_power, activity_iv, activity_is,
                        sleep_max_power, sleep_iv, sleep_is]
@@ -244,6 +252,10 @@ dodge = 0.5
 marker_size = 3
 col_title_size = 10
 label_size = 8
+data_sep_value = 0.3
+sig_val = 0.05
+sig_col = "p-tukey"
+sig_line_ylevel = 0.9
 
 # create figure with right number of rows and cols
 fig, ax = plt.subplots(nrows=len(activity_list), ncols=nocols)
@@ -261,17 +273,27 @@ for col_no, data_list in enumerate(data_type_list):
         measurement_col = data.columns[-1]
         curr_ax = axis_column[row_no]
         conditions = data[condition_col].unique()
+        curr_marker = marker_types
         
         # plot using seaborn
-        sns.pointplot(x=condition_col, y=measurement_col,
-                      hue=section_col, data=data, ax=curr_ax,
-                      join=False, capsize=capsize,
-                      errwidth=errwidth, dodge=dodge,
+        sns.pointplot(x=condition_col,
+                      y=measurement_col,
+                      hue=section_col,
+                      data=data,
+                      ax=curr_ax,
+                      join=False,
+                      capsize=capsize,
+                      errwidth=errwidth,
+                      dodge=dodge,
                       ci=sem)
         
-        sns.swarmplot(x=condition_col, y=measurement_col,
-                      hue=section_col, data=data, ax=curr_ax,
-                      dodge=dodge, size=marker_size)
+        sns.swarmplot(x=condition_col,
+                      y=measurement_col,
+                      hue=section_col,
+                      data=data,
+                      ax=curr_ax,
+                      dodge=dodge,
+                      size=marker_size)
         
         # remove the legend
         ax_leg = curr_ax.legend()
@@ -288,6 +310,56 @@ for col_no, data_list in enumerate(data_type_list):
             curr_ax.set_ylabel(measurement_col, fontsize=label_size)
         else:
             curr_ax.set_ylabel("")
+
+        # add in statistical sig bars
+
+        # get y value for sig line
+        axes_to_data = curr_ax.transLimits.inverted()
+        ycoords = (0.5, sig_line_ylevel)
+        ycoords_data = axes_to_data.transform(ycoords)
+        ycoords_data_val = ycoords_data[1]
+
+        # get the locations for xvals to look up
+        locs = curr_ax.get_xticks()
+        labels = curr_ax.get_xticklabels()
+        label_text = [x.get_text() for x in labels]
+        label_loc_dict = dict(zip(label_text, locs))
+        
+        # get x vals for sig line
+        # get the right df to lookup
+        marker_types = ph_df_bothtypes.index.get_level_values(1).unique()
+        data_type_label = data_types[col_no]
+        ph_type = ph_df_bothtypes.loc[data_type_label]
+        ph_marker = ph_type.loc[measurement_col]
+
+        # get x values where sig
+        sig_mask = ph_marker[sig_col] < sig_val
+        sig_vals = ph_marker[sig_mask]
+        sig_disrupt = sig_vals.loc[idx[:, 0], :].index.get_level_values(0)
+        sig_recovery = sig_vals.loc[idx[:, 1], :].index.get_level_values(0)
+
+        # put xvals into coordinates for drawing on axis
+        for xval_label in sig_disrupt:
+            curr_xval = label_loc_dict[xval_label]
+            hxvals = [curr_xval - data_sep_value, curr_xval]
+            hxvals_axes = curr_ax.transLimits.transform([(hxvals[0], 0),
+                                                         (hxvals[1], 0)])
+            hxvals_axes_xval = hxvals_axes[:, 0]
+
+            curr_ax.axhline(ycoords_data_val,
+                            xmin=hxvals_axes_xval[0],
+                            xmax=hxvals_axes_xval[1])
+            
+        for xval_label in sig_recovery:
+            curr_xval = label_loc_dict[xval_label]
+            hxvals = [curr_xval- data_sep_value, curr_xval + data_sep_value]
+            hxvals_axes = curr_ax.transLimits.transform([(hxvals[0], 0),
+                                                         (hxvals[1], 0)])
+            hxvals_axes_xval = hxvals_axes[:, 0]
+
+            curr_ax.axhline(ycoords_data_val,
+                            xmin=hxvals_axes_xval[0],
+                            xmax=hxvals_axes_xval[1])
 
 # set the legend
 handles, legends = curr_ax.get_legend_handles_labels()
