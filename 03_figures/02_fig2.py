@@ -312,7 +312,7 @@ for col, df in enumerate([activity_mean, sleep_mean]):
         ph_df_protocol = ph_df_curr[condition_label]
         sig_mask = ph_df_protocol.loc[:, p_val_col] < sig_val
         ph_sig_times = ph_df_protocol[sig_mask
-                       ].loc[idx[:, sig_index_ph_df], :
+                       ].loc[idx[:, sig_indexlevel_ph_df], :
                        ].index.get_level_values(0)
 
         print(condition_label)
