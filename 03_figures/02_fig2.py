@@ -1,26 +1,31 @@
 # Figure 2. Mean activity and sleep over 24 Circadian hours
 
+import pingouin as pg
+import statsmodels.formula.api as smf
+import statsmodels.stats.anova as smav
+import actiPy.plots as aplot
+import actiPy.waveform as wave
+import actiPy.periodogram as per
+import actiPy.preprocessing as prep
+import sys
+import seaborn as sns
+import matplotlib.dates as mdates
+import matplotlib.gridspec as gs
+import matplotlib.pyplot as plt
+import matplotlib
 import pathlib
 import pandas as pd
 idx = pd.IndexSlice
-import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gs
-import matplotlib.dates as mdates
-import seaborn as sns
-import sys
 sys.path.insert(0, "/Users/angusfisk/Documents/01_PhD_files/"
                    "07_python_package/actiPy")
-import actiPy.preprocessing as prep
-import actiPy.periodogram as per
-import actiPy.waveform as wave
-import actiPy.plots as aplot
+
 
 def norm_base_mean(protocol_df, baseline_str: str = "Baseline"):
     base_values = protocol_df.loc[idx[:, baseline_str], :]
     normalise_value = base_values.mean()[0]
     normalised_df = (protocol_df / normalise_value) * 100
     return normalised_df
+
 
 # Step 1: Read in files to analyse
 index_cols = [0, 1]
@@ -40,7 +45,7 @@ activity_dfs = [prep.read_file_to_df(x, index_col=index_cols)
                 for x in activity_filenames]
 sleep_dfs = [prep.read_file_to_df(x, index_col=index_cols)
              for x in sleep_filenames]
-activity_hourly = [prep._resample(x) for x in activity_dfs] # turn into dfs
+activity_hourly = [prep._resample(x) for x in activity_dfs]  # turn into dfs
 sleep_hourly = [prep._resample(x) for x in sleep_dfs]
 
 # Step 2: Split into circadian days
@@ -64,10 +69,14 @@ for df in [activity_periods, sleep_periods]:
     df.loc[idx[:, "Baseline"], :] = pd.Timedelta("1D")
 
 # Split into days of given period length
-activity_split = prep.split_list_with_periods(name_df=activity_periods,
-                                              df_list=activity_dfs)
-sleep_split = prep.split_list_with_periods(name_df=sleep_periods,
-                                           df_list=sleep_dfs)
+activity_split = prep.split_list_with_periods(
+    name_df=activity_periods,
+    df_list=activity_dfs
+)
+sleep_split = prep.split_list_with_periods(
+    name_df=sleep_periods,
+    df_list=sleep_dfs
+)
 
 # Step 3: Find mean hourly activity
 
@@ -84,15 +93,17 @@ sleep_mean = sleep_mean_raw.groupby(level=0).apply(norm_base_mean)
 col_names = ['Protocol', 'Time', 'Animal', 'Hour', "Mean"]
 protocols = activity_split.index.get_level_values(0).unique()
 
+
 def clean_df(df, col_names):
     temp_mean = df.mean(axis=1)
     temp_mean_h = temp_mean.groupby(level=[0, 1, 2]
                                     ).resample("H",
-                                              level=3).mean()
+                                               level=3).mean()
     tidy_df = temp_mean_h.reset_index()
     tidy_df.columns = col_names
-    
+
     return tidy_df
+
 
 tidy_activity = clean_df(activity_split, col_names)
 tidy_sleep = clean_df(sleep_split, col_names)
@@ -110,17 +121,15 @@ save_test_dir = save_fig.parent / "00_csvs/02_fig2"
 
 # 1. Do we have different effects of protocolxtimexhour on activity?
 # 3 way anova
-import statsmodels.stats.anova as smav
-import statsmodels.formula.api as smf
-import pingouin as pg
 
 
 # testing activity
 act_test_dir = save_test_dir / "01_activity"
 
-three_way_model = smf.ols("Mean ~ C(Hour)*C(Time)*C(Protocol)",
-                          tidy_activity
-                          ).fit()
+three_way_model = smf.ols(
+    "Mean ~ C(Hour)*C(Time)*C(Protocol)",
+    tidy_activity
+).fit()
 three_way_table = smav.anova_lm(three_way_model)
 three_way_name = act_test_dir / "01_threewayanova.csv"
 three_way_table.to_csv(three_way_name)
@@ -139,7 +148,7 @@ for protocol in protocols:
     two_way_df = smav.anova_lm(two_way_model, typ=2)
     print(protocol)
     print(two_way_model.summary())
-    
+
     # post hoc tukeys
     ph_dict = {}
     for hour in hours:
@@ -153,14 +162,14 @@ for protocol in protocols:
         ph_dict[hour] = ph_t
     ph_df = pd.concat(ph_dict)
     ph_df_dict_act[protocol] = ph_df
-    
+
     curr_test_dir = act_test_dir / protocol
     ph_test_name = curr_test_dir / "02_posthoc.csv"
     ph_df.to_csv(ph_test_name)
     two_way_name = curr_test_dir / "01_anova.csv"
     two_way_df.to_csv(two_way_name)
     # to csv
- 
+
 
 # testing sleep
 sleep_test_dir = save_test_dir / "02_sleep"
@@ -186,7 +195,7 @@ for protocol in protocols:
     two_way_df = smav.anova_lm(two_way_model, typ=2)
     print(protocol)
     print(two_way_model.summary())
-    
+
 # post hoc tukeys
     ph_dict = {}
     for hour in hours:
@@ -200,14 +209,14 @@ for protocol in protocols:
         ph_dict[hour] = ph_t
     ph_df = pd.concat(ph_dict)
     ph_df_dict_sleep[protocol] = ph_df
-    
+
     curr_test_dir = sleep_test_dir / protocol
     ph_test_name = curr_test_dir / "02_posthoc.csv"
     ph_df.to_csv(ph_test_name)
     two_way_name = curr_test_dir / "01_anova.csv"
     two_way_df.to_csv(two_way_name)
     # to csv
- 
+
     # to csv of two way
 # to csv
 
@@ -217,7 +226,7 @@ save_dir = save_fig.parent / "00_csvs/02_fig2.csv"
 stats_data = pd.concat([tidy_activity, tidy_sleep], sort=False)
 stats_data.to_csv(save_dir)
 
-########### Plot ###############################################################
+########### Plot #########################################################
 
 # plotting constants
 activity_conditions = activity_mean.index.get_level_values(0).unique()
@@ -277,19 +286,19 @@ both_axes = [activity_axes, sleep_axes]
 
 # Plot data on correct axis
 for col, df in enumerate([activity_mean, sleep_mean]):
-    axis_column = both_axes[col] # Select right axis column
+    axis_column = both_axes[col]  # Select right axis column
     condition = both_conditions[col]
     panels_col = panels[col]
-    
+
     # Plot conditions on each axis
     for condition_no, condition_label in enumerate(condition):
         curr_ax = axis_column[condition_no]
-        
+
         # Plot each section on the same axis
         for section in sections:
             mean_data = df.loc[idx[condition_label, section], cols[0]]
             sem_data = df.loc[idx[condition_label, section], cols[1]]
-            
+
             curr_ax.plot(
                 mean_data,
                 label=section
@@ -300,7 +309,7 @@ for col, df in enumerate([activity_mean, sleep_mean]):
                 (mean_data + sem_data),
                 alpha=0.5
             )
-            
+
             # Set the background to indicate lights
             curr_ax.fill_between(
                 dark_index,
@@ -309,7 +318,7 @@ for col, df in enumerate([activity_mean, sleep_mean]):
                 alpha=0.2,
                 color='0.5'
             )
-        
+
         # Fix the axes
         ylim = [0, 350]
         if col == 1:
@@ -325,7 +334,7 @@ for col, df in enumerate([activity_mean, sleep_mean]):
             label.set_fontsize(xfontsize)
         for ylabel in curr_ax.get_yticklabels():
             ylabel.set_fontsize(xfontsize)
-            
+
         # Add in extra text
         if col == 0:
             curr_ax.text(
@@ -343,8 +352,7 @@ for col, df in enumerate([activity_mean, sleep_mean]):
             transform=curr_ax.transAxes,
             fontsize=panelsize,
         )
-        
-        
+
         # get xvalues where significant
         ph_df_curr = ph_df_both[col]
         ph_df_protocol = ph_df_curr[condition_label]
