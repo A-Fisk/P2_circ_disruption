@@ -1,28 +1,20 @@
-# creating figure 2
-# requires Mean waveforms for activity and sleep
-# per hour with +/- SEM
+# Figure 2. Mean activity and sleep over 24 Circadian hours
 
-# start with imports
 import pathlib
 import pandas as pd
-import numpy as np
-import pingouin as pg
-import statsmodels.regression.mixed_linear_model as lm
+idx = pd.IndexSlice
 import matplotlib
-
-matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gs
 import matplotlib.dates as mdates
+import seaborn as sns
 import sys
-
 sys.path.insert(0, "/Users/angusfisk/Documents/01_PhD_files/"
                    "07_python_package/actiPy")
 import actiPy.preprocessing as prep
 import actiPy.periodogram as per
 import actiPy.waveform as wave
-
-# import the files we are going to read
+import actiPy.plots as aplot
 
 def norm_base_mean(protocol_df, baseline_str: str = "Baseline"):
     base_values = protocol_df.loc[idx[:, baseline_str], :]
@@ -30,14 +22,11 @@ def norm_base_mean(protocol_df, baseline_str: str = "Baseline"):
     normalised_df = (protocol_df / normalise_value) * 100
     return normalised_df
 
-# define constants
+# Step 1: Read in files to analyse
 index_cols = [0, 1]
-idx = pd.IndexSlice
 save_fig = pathlib.Path("/Users/angusfisk/Documents/01_PhD_files/"
                         "01_projects/01_thesisdata/02_circdis/"
                         "03_analysis_outputs/03_figures/02_fig2.png")
-
-# get the file names
 activity_dir = pathlib.Path('/Users/angusfisk/Documents/01_PhD_files/'
                             '01_projects/01_thesisdata/02_circdis/'
                             '01_data_files/01_activity/00_clean')
@@ -45,23 +34,16 @@ activity_dir = pathlib.Path('/Users/angusfisk/Documents/01_PhD_files/'
 sleep_dir = pathlib.Path('/Users/angusfisk/Documents/01_PhD_files/'
                          '01_projects/01_thesisdata/02_circdis/'
                          '01_data_files/02_sleep/00_clean')
-
 activity_filenames = sorted(activity_dir.glob("*.csv"))
 sleep_filenames = sorted(sleep_dir.glob("*.csv"))
-
-# import into lists
 activity_dfs = [prep.read_file_to_df(x, index_col=index_cols)
                 for x in activity_filenames]
 sleep_dfs = [prep.read_file_to_df(x, index_col=index_cols)
              for x in sleep_filenames]
-
-activity_hourly = [prep._resample(x) for x in activity_dfs]
+activity_hourly = [prep._resample(x) for x in activity_dfs] # turn into dfs
 sleep_hourly = [prep._resample(x) for x in sleep_dfs]
 
-# find the hourly means for each condition
-# need to find internal period and correct for that
-# for disrupted and post_baseline times
-
+# Step 2: Split into circadian days
 # find internal period
 activity_dict = {}
 for df in activity_dfs:
@@ -81,21 +63,18 @@ sleep_periods = pd.concat(sleep_dict)
 for df in [activity_periods, sleep_periods]:
     df.loc[idx[:, "Baseline"], :] = pd.Timedelta("1D")
 
-# split based on period
+# Split into days of given period length
 activity_split = prep.split_list_with_periods(name_df=activity_periods,
                                               df_list=activity_dfs)
-
 sleep_split = prep.split_list_with_periods(name_df=sleep_periods,
                                            df_list=sleep_dfs)
 
-# find mean and sem
-# want to find the mean for each individual animal then take the mean
-# of the aggregate animal means and sem of them
+# Step 3: Find mean hourly activity
 
-# find means for each individual animal per condition/section
+# find group means of individual animal means
 activity_mean_raw = wave.group_mean_df(activity_split)
 sleep_mean_raw = wave.group_mean_df(sleep_split)
-
+# normalise
 activity_mean = activity_mean_raw.groupby(level=0).apply(norm_base_mean)
 sleep_mean = sleep_mean_raw.groupby(level=0).apply(norm_base_mean)
 
@@ -238,9 +217,9 @@ save_dir = save_fig.parent / "00_csvs/02_fig2.csv"
 stats_data = pd.concat([tidy_activity, tidy_sleep], sort=False)
 stats_data.to_csv(save_dir)
 
-# plot
+########### Plot ###############################################################
 
-# set values to iterate through to select right part of the data
+# plotting constants
 activity_conditions = activity_mean.index.get_level_values(0).unique()
 sleep_conditions = sleep_mean.index.get_level_values(0).unique()
 both_conditions = [activity_conditions, sleep_conditions]
@@ -252,96 +231,232 @@ sig_val = 0.05
 sig_indexlevel_ph_df = 0
 sig_yvals = [300, 175]
 p_val_col = "p-tukey"
+xfmt = mdates.DateFormatter("%H:%M:%S")
+hspace = 0.5
+xfontsize = 8
+panels = [["A", "B", "C", "D"], ["E", "F", "G", "H"]]
+mainlabelsize = 12
+panelsize = 10
+dark_index = pd.DatetimeIndex(
+    start="2010-01-01 12:00:00",
+    end="2010-01-02 02:00:00",
+    freq="H"
+)
+start_index = pd.Timestamp('2010-01-01 00:00:00')
+end_index = pd.Timestamp("2010-01-02 00:00:00")
+sns.set_style(
+    "darkgrid",
+    # {"xtick.bottom": "True",
+    #  "ytick.left": "True",
+    #  "axes.spines.bottom": "False",
+    #  "axes.spines.left": "False"}
+)
 
-# create figures
-fig, ax = plt.subplots(nrows=len(activity_conditions),
-                       ncols=2,
-                       sharex=True)
 
-# set font size
-plt.rcParams.update({"font.size": 5})
-# matplotlib.rc("ylabel", labelsize=3)
-# matplotlib.rc("")
+# Create figure and axes
+fig = plt.figure()
+activity_grid = gs.GridSpec(
+    nrows=len(activity_conditions),
+    ncols=1,
+    figure=fig,
+    right=0.45,
+    left=0.15,
+    hspace=hspace
+)
+activity_axes = [plt.subplot(x) for x in activity_grid]
+sleep_grid = gs.GridSpec(
+    nrows=len(sleep_conditions),
+    ncols=1,
+    figure=fig,
+    right=0.85,
+    left=0.55,
+    hspace=hspace
+)
+sleep_axes = [plt.subplot(x) for x in sleep_grid]
+both_axes = [activity_axes, sleep_axes]
 
-# loop through activity/sleep, conditions, sections
+# Plot data on correct axis
 for col, df in enumerate([activity_mean, sleep_mean]):
-    axis_column = ax[:, col]
+    axis_column = both_axes[col] # Select right axis column
     condition = both_conditions[col]
+    panels_col = panels[col]
     
-    # loop through conditions
+    # Plot conditions on each axis
     for condition_no, condition_label in enumerate(condition):
         curr_ax = axis_column[condition_no]
         
-        # select the data and plot on the correct axis
+        # Plot each section on the same axis
         for section in sections:
-            # select the data
             mean_data = df.loc[idx[condition_label, section], cols[0]]
             sem_data = df.loc[idx[condition_label, section], cols[1]]
             
-            # plot the mean +/- sem on the subplot
-            curr_ax.plot(mean_data, label=section)
+            curr_ax.plot(
+                mean_data,
+                label=section
+            )
+            curr_ax.fill_between(
+                mean_data.index,
+                (mean_data - sem_data),
+                (mean_data + sem_data),
+                alpha=0.5
+            )
             
-            curr_ax.fill_between(mean_data.index, (mean_data - sem_data),
-                                 (mean_data + sem_data), alpha=0.5)
-            
-            # set a grey background
-            curr_ax.fill_between(mean_data.between_time("12:00:00",
-                                                        "23:59:00").index,
-                                 500,
-                                 alpha=0.2, color='0.5')
+            # Set the background to indicate lights
+            curr_ax.fill_between(
+                dark_index,
+                # mean_data.between_time("12:00:00", "23:59:00").index,
+                500,
+                alpha=0.2,
+                color='0.5'
+            )
         
-        # set limits
+        # Fix the axes
         ylim = [0, 350]
         if col == 1:
             ylim = [0, 200]
-        curr_ax.set(xlim=[mean_data.index[0],
-                          mean_data.index[-1]],
-                    ylim=ylim)
-        
-        # fix the ticks
-        curr_ax.set_yticks([])
-        curr_ax.set_xticks([])
-        xfmt = mdates.DateFormatter("%H:%M:%S")
+        curr_ax.set(
+            xlim=[start_index, end_index],
+            ylim=ylim
+        )
         curr_ax.xaxis.set_major_formatter(xfmt)
+        for label in curr_ax.get_xticklabels():
+            label.set_ha('right')
+            label.set_rotation(30)
+            label.set_fontsize(xfontsize)
+        for ylabel in curr_ax.get_yticklabels():
+            ylabel.set_fontsize(xfontsize)
+            
+        # Add in extra text
+        if col == 0:
+            curr_ax.text(
+                -0.3,
+                0.5,
+                condition_label,
+                transform=curr_ax.transAxes,
+                rotation=90,
+                fontsize=mainlabelsize
+            )
+        curr_ax.text(
+            -0.2,
+            1.1,
+            panels_col[condition_no],
+            transform=curr_ax.transAxes,
+            fontsize=panelsize,
+        )
         
-        # set the title for each condition
-        curr_ax.set_title(condition_label)
-
+        
         # get xvalues where significant
         ph_df_curr = ph_df_both[col]
         ph_df_protocol = ph_df_curr[condition_label]
-        sig_mask = ph_df_protocol.loc[:, p_val_col] < sig_val
-        ph_sig_times = ph_df_protocol[sig_mask
-                       ].loc[idx[:, sig_indexlevel_ph_df], :
-                       ].index.get_level_values(0)
+        sig_disrupt = aplot.sig_locs_get(
+            ph_df_protocol,
+            index_level2val=0
+        ) + min_30
+        sig_recovery = aplot.sig_locs_get(
+            ph_df_protocol,
+            index_level2val=1
+        ) + min_30
+        # sig_mask = ph_df_protocol.loc[:, p_val_col] < sig_val
+        # ph_sig_times = ph_df_protocol[sig_mask
+        #                ].loc[idx[:, sig_indexlevel_ph_df], :
+        #                ].index.get_level_values(0)
 
         print(condition_label)
-        sig_yval_curr = sig_yvals[col]
-        # draw line at points of significance
-        for xval in ph_sig_times:
-            print(xval)
-            hxvals = [(xval - min_30), (xval + min_30)]
-            hxvals_shift = [x + min_30 for x in hxvals]
-            hxvals_num = [mdates.date2num(x) for x in hxvals_shift]
-            hxvals_transformed = curr_ax.transLimits.transform(
-                [(hxvals_num[0], 0),
-                 (hxvals_num[1], 0)])
-            hxvals_trans_xvals = hxvals_transformed[:, 0]
-            curr_ax.axhline(sig_yval_curr,
-                            xmin=hxvals_trans_xvals[0],
-                            xmax=hxvals_trans_xvals[1])
+        # sig_yval_curr = sig_yvals[col]
+        sig_yval_disrupt = aplot.sig_line_coord_get(
+            curr_ax,
+            0.9
+        )
+        sig_yval_recovery = aplot.sig_line_coord_get(
+            curr_ax,
+            0.95
+        )
+        for xval in sig_disrupt:
+            xvals = aplot.get_xval_dates(
+                xval,
+                minus_val=min_30,
+                plus_val=min_30,
+                curr_ax=curr_ax
+            )
+            curr_ax.axhline(
+                sig_yval_disrupt,
+                xvals[0],
+                xvals[1],
+                color='C1'
+            )
+        for xval in sig_recovery:
+            xvals = aplot.get_xval_dates(
+                xval,
+                minus_val=min_30,
+                plus_val=min_30,
+                curr_ax=curr_ax
+            )
+            curr_ax.axhline(
+                sig_yval_recovery,
+                xvals[0],
+                xvals[1],
+                color='C2'
+            )
+        # # draw line at points of significance
+        # for xval in ph_sig_times:
+        #     print(xval)
+        #     hxvals = [(xval - min_30), (xval + min_30)]
+        #     hxvals_shift = [x + min_30 for x in hxvals]
+        #     hxvals_num = [mdates.date2num(x) for x in hxvals_shift]
+        #     hxvals_transformed = curr_ax.transLimits.transform(
+        #         [(hxvals_num[0], 0),
+        #          (hxvals_num[1], 0)])
+        #     hxvals_trans_xvals = hxvals_transformed[:, 0]
+        #     curr_ax.axhline(sig_yval_curr,
+        #                     xmin=hxvals_trans_xvals[0],
+        #                     xmax=hxvals_trans_xvals[1])
 
 
-ax[0, 1].legend()
+both_axes[1][0].legend(
+    loc=(1.05, 0.65),
+    prop={"size": xfontsize},
+)
 
-# set the size of the plot and text
-fig.autofmt_xdate()
+# Add in figure text
+type_label_level = 1.1
+type_label_xval = 0.5
+fig.text(
+    type_label_xval,
+    type_label_level,
+    "Activity",
+    transform=activity_axes[0].transAxes,
+    fontsize=mainlabelsize,
+    ha='center'
+)
+fig.text(
+    type_label_xval,
+    type_label_level,
+    "Sleep",
+    transform=sleep_axes[0].transAxes,
+    fontsize=mainlabelsize,
+    ha='center'
+)
+fig.suptitle(
+    "Activity and sleep profiles under different protocols",
+    fontsize=mainlabelsize
+)
+fig.text(
+    0.5,
+    0.05,
+    "Circadian time, hours",
+    fontsize=mainlabelsize,
+    ha='center'
+)
+fig.text(
+    0.02,
+    0.5,
+    "Percentage of mean of baseline day +/- SEM",
+    rotation=90,
+    fontsize=mainlabelsize,
+    va='center'
+)
+
 fig.set_size_inches(8.27, 11.69)
-fig.subplots_adjust(hspace=0.5)
-fig.suptitle("Mean activity and sleep under different disruption. +/- sem",
-             fontsize=10)
-fig.text(0.45, 0.05, "Circadian time (hours)", fontsize=10)
-
 plt.savefig(save_fig, dpi=600)
 
 plt.close('all')
