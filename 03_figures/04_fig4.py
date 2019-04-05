@@ -101,6 +101,11 @@ sleep_periods = pd.to_timedelta(
 ).unstack(
     level=2
 )
+periods_dict = {
+    "activity": activity_periods,
+    "sleep": sleep_periods
+}
+periods_df = pd.concat(periods_dict).stack()
 
 
 # Step 2 remove post-baseline
@@ -119,41 +124,62 @@ removed_rename = removed_data.groupby(
 
 long_removed = longform(removed_rename, col_names=COL_NAMES)
 
-# Split by period
-activity_split = prep.split_list_with_periods(
-    name_df=activity_periods,
-    df_list=activity_dfs
-)
-sleep_split = prep.split_list_with_periods(
-    name_df=sleep_periods,
-    df_list=sleep_dfs
-)
-split_dict = {
-    "activity": activity_split,
-    "sleep": sleep_split
-}
-split_df = pd.concat(split_dict)
 
 # Step 3 Calculate mean length per day and count per day
-mean_data = split_df.groupby(
-    level=[0, 1, 2, 3]
-).mean( # mean of each day
-).mean( # mean of all days for each animal
-    axis=1
+
+# going to resample by each animals period
+# will need manual groupby fx to do so with each animal havign diff period
+def manual_mean_groupby(curr_data,
+                        mean: bool=True,
+                        sum: bool=False):
+    types = curr_data.index.get_level_values(0).unique()
+    protocols = curr_data.index.get_level_values(1).unique()
+    times = curr_data.index.get_level_values(2).unique()
+    animals = curr_data.index.get_level_values(3).unique()
+    resampled_data_dict = {}
+    for type in types:
+        type_df = curr_data.loc[type]
+        type_periods = periods_df.loc[type]
+        type_dict = {}
+        for protocol in protocols:
+            protocol_df = type_df.loc[protocol]
+            protocol_periods = type_periods.loc[protocol]
+            protocol_dict = {}
+            for time in times:
+                time_df = protocol_df.loc[time]
+                time_periods = protocol_periods.loc[time]
+                time_dict = {}
+                for animal in animals:
+                    animal_df = time_df.loc[animal]
+                    animal_period = time_periods.loc[animal]
+                    if mean:
+                        anim_day_df = animal_df.resample(animal_period).mean()
+                    if sum:
+                        anim_day_df = animal_df.resample(animal_period).sum()
+                    time_dict[animal] = anim_day_df
+                time_df_resampled = pd.concat(time_dict)
+                protocol_dict[time] = time_df_resampled
+            protocol_df_resampled = pd.concat(protocol_dict)
+            type_dict[protocol] = protocol_df_resampled
+        type_df_resampled = pd.concat(type_dict)
+        resampled_data_dict[type] = type_df_resampled
+    resampled_data = pd.concat(resampled_data_dict)
+
+    return resampled_data
+
+# get mean data in right format
+stacked_all = all_data.stack().reorder_levels([0, 1, 2, 4, 3])
+mean_data = manual_mean_groupby(
+    stacked_all,
+    mean=True,
+    sum=False
 ).unstack(
     level=3
 )
-
-median_data = all_data.groupby( # median length per day
-    level=[0, 1, 2]
-).resample(
-    "D",
-    level=3
-).mean()
-median_anim_mean = median_data.groupby( # mean median length for each animal
+mean_anim_mean = mean_data.groupby(
     level=[0, 1, 2]
 ).mean()
-median_norm = median_anim_mean.groupby( # normalise animal means to baseline
+median_norm = mean_anim_mean.groupby( # normalise animal means to baseline
     level=[0, 1]
 ).apply(
     norm_base_mean
@@ -165,14 +191,17 @@ med_relabel = median_norm.groupby( # relabel for stats
     level_index=1
 )
 
-# count each day
-above_zero = (all_data > 0).astype(bool) # Turn each value to a bool
-count_data = above_zero.groupby( # count where there is an episode
-    level=[0, 1, 2]
-).resample(
-    "D",
+# get sum data in right format
+above_zero = (all_data > 0).astype(
+    bool
+).stack().reorder_levels([0, 1, 2, 4, 3])
+count_data = manual_mean_groupby(
+    old_above_zero,
+    mean=False,
+    sum=True
+).unstack(
     level=3
-).sum()
+)
 count_anim_mean = count_data.groupby( # mean of number per day for each animal
     level=[0, 1, 2]
 ).mean()
@@ -366,197 +395,197 @@ for marker, type_axis in zip(marker_types, med_count_axes):
         legend = curr_ax.legend()
         legend.remove()
 
-
-
-upper_grid = gs.GridSpec(
-    nrows=4,
-    ncols=2,
-    figure=fig,
-    top=0.85,
-    bottom=0.5,
-    hspace=0
-)
-
-histogram_axes = []
-for row in range(4):
-    col_axes = []
-    for col in range(2):
-        add_ax = plt.subplot(upper_grid[row, col])
-        col_axes.append(add_ax)
-    histogram_axes.append(col_axes)
-
-histogram_axes_array = np.array(histogram_axes)
-
-
-# Plot histograms
-
-# loop through the data types
-for col_no, data_type in enumerate(data_types):
-
-    # select the column
-    axis_column = histogram_axes_array[:, col_no]
-
-    # select just the data type
-    # need to grab data type here as pir_data_sleep
-    data_sep_type = data[data[data_type_col] == data_type]
-    conditions = data_sep_type[condition_col].unique()
-
-    # loop through all the conditions
-    for row_no, condition in enumerate(conditions):
-
-        curr_ax = axis_column[row_no]
-
-        # select the data
-        curr_data = data[data[condition_col] == condition]
-        baseline_data = curr_data[curr_data[section_col]
-                                  == sections[0]]
-        disrupted_data = curr_data[curr_data[section_col]
-                                   == sections[1]]
-
-        ax1 = curr_ax
-        ax1.hist([baseline_data[measurement_col],
-                  disrupted_data[measurement_col]],
-                 # alpha=0.5,
-                 color=["k", 'b'],
-                 bins=bins, density=True)
-        # ax1.hist(disrupted_data[measurement_col], alpha=0.3, color="b",
-        #          bins=bins, density=True)
-
-        ax1.set_yscale('log')
-        ax1.set_xscale('log')
-        ax1.tick_params(axis='both', which='major', labelsize=label_size)
-
-        # remove the axis label
-        if condition != conditions[-1]:
-            ax1.set_xticklabels(ax1.get_xticklabels(), visible=False)
-        else:
-            ax1.set_xlabel("Bout duration, log secs", size=label_size)
-
-        if condition == conditions[0]:
-            ax1.set_title("Log histogram of bout duration", size=label_size)
-
-        ax1.text(0.8, 0.9, condition, transform=ax1.transAxes,
-                 size=label_size)
-
-fig.text(0.07, 0.69, "Normalised density", rotation=90, size=label_size)
-fig.text(0.5, 0.69, "Normalised density", rotation=90, size=label_size)
-
-# Plot scatterplot
-
-# create plots
-lower_grid = gs.GridSpec(nrows=1, ncols=2, top=0.40, bottom=0.1,
-                         figure=fig)
-activity_ax = plt.subplot(lower_grid[:, 0])
-sleep_ax = plt.subplot(lower_grid[:, 1])
-
-scatter_array = np.array([activity_ax, sleep_ax])
-
-median_col = scatter_data.columns[-2]
-count_col = scatter_data.columns[-1]
-
-# loop through the data types
-for sep_col, data_type in enumerate(data_types):
-
-    curr_scatter_axis = scatter_array[sep_col]
-
-    # select the data
-    data_sep_type = scatter_data[scatter_data[data_type_col] == data_type]
-    ymin = 0
-    ymax = data_sep_type[median_col].max() * 0.8
-    xmin = 0
-    xmax = data_sep_type[count_col].max()
-
-    # create different conditions plots
-    inner_grid_scatter = gs.GridSpecFromSubplotSpec(
-        nrows=1, ncols=4, subplot_spec=curr_scatter_axis, wspace=0, hspace=0)
-
-    # grab the conditions to avoid sleep/activity missing
-    conditions = data_sep_type[condition_col].unique()
-
-    # loop through the conditions
-    for condition, grid in zip(conditions, inner_grid_scatter):
-
-        # select the data
-        condition_scatter = data_sep_type[
-            data_sep_type[condition_col] == condition
-        ]
-        baseline_data = condition_scatter[condition_scatter[section_col] ==
-                                          sections[0]]
-        disrupted_data = condition_scatter[condition_scatter[section_col] ==
-                                           sections[1]]
-
-        # create the new axis
-        ax2 = plt.Subplot(fig, grid)
-        fig.add_subplot(ax2)
-
-        # plot the scatterplot on the axis
-        # sns.scatterplot(x=count_col, y=median_col, hue=section_col,
-        #                 data=condition_scatter, ax=ax2, alpha=0.5,
-        #                 legend=False)
-
-        # try with a kdeplot instead
-        sns.scatterplot(baseline_data[count_col],
-                        baseline_data[median_col],
-                        # shade=True,
-                        # shade_lowest=True,
-                        # cmap="Greys",
-                        ax=ax2,
-                        alpha=1)
-        sns.scatterplot(disrupted_data[count_col],
-                        disrupted_data[median_col],
-                        # shade=False,
-                        # shade_lowest=False,
-                        # cmap="Blues",
-                        ax=ax2,
-                        alpha=0.5)
-
-        # set x and y axis
-        ax2.set(ylim=[ymin, ymax],
-                xlim=[xmin, xmax],
-                facecolor='w')
-        ax2.tick_params(axis='both', which='major', labelsize=label_size)
-
-        # remove the labels
-        if condition != conditions[0]:
-            ax2.set_yticks([])
-            ax2.set_yticklabels(ax2.get_yticklabels(), visible=False)
-        ax2.set_ylabel("")
-        ax2.set_xlabel("")
-
-        # set the title to be each condition
-        ax2.set_title(condition, size=label_size, rotation=45, va="top")
-
-        print(condition, baseline_data.describe())
-
-    # remove curr axis labels
-    curr_scatter_axis.set_yticks([])
-    curr_scatter_axis.set_xticks([])
-
-    # set axis label
-    curr_scatter_axis.set_xlabel("Number of episodes per day", size=label_size)
-    curr_scatter_axis.set_ylabel("Mean length of episodes per day, secs",
-                                 size=label_size)
-    curr_scatter_axis.yaxis.set_label_coords(-0.15, 0.5)
-    curr_scatter_axis.xaxis.set_label_coords(0.5, -0.15)
-
-# add in activity and sleep columns
-fig.text(0.25, 0.9, "Activity", size=label_size)
-fig.text(0.75, 0.9, "Sleep", size=label_size)
-
-# create the legend
-legend_lines = [Line2D([0], [0], color='w', alpha=0.8,
-                       marker='o', markersize=10, label="Baseline",
-                       markerfacecolor='0.5'),
-                Line2D([0], [0], color='w', alpha=0.4, marker='o',
-                       markersize=10, label="Disrupted",
-                       markerfacecolor='b')]
-fig.legend(handles=legend_lines, loc=(0.87, 0.9), fontsize=label_size,
-           frameon=False)
-fig.legend(handles=legend_lines, loc=(0.87, 0.42), fontsize=label_size,
-           frameon=False)
-
-fig.suptitle("Bout duration under different disrupting light cycles")
-fig.set_size_inches(8.27, 11.69)
+#
+#
+# upper_grid = gs.GridSpec(
+#     nrows=4,
+#     ncols=2,
+#     figure=fig,
+#     top=0.85,
+#     bottom=0.5,
+#     hspace=0
+# )
+#
+# histogram_axes = []
+# for row in range(4):
+#     col_axes = []
+#     for col in range(2):
+#         add_ax = plt.subplot(upper_grid[row, col])
+#         col_axes.append(add_ax)
+#     histogram_axes.append(col_axes)
+#
+# histogram_axes_array = np.array(histogram_axes)
+#
+#
+# # Plot histograms
+#
+# # loop through the data types
+# for col_no, data_type in enumerate(data_types):
+#
+#     # select the column
+#     axis_column = histogram_axes_array[:, col_no]
+#
+#     # select just the data type
+#     # need to grab data type here as pir_data_sleep
+#     data_sep_type = data[data[data_type_col] == data_type]
+#     conditions = data_sep_type[condition_col].unique()
+#
+#     # loop through all the conditions
+#     for row_no, condition in enumerate(conditions):
+#
+#         curr_ax = axis_column[row_no]
+#
+#         # select the data
+#         curr_data = data[data[condition_col] == condition]
+#         baseline_data = curr_data[curr_data[section_col]
+#                                   == sections[0]]
+#         disrupted_data = curr_data[curr_data[section_col]
+#                                    == sections[1]]
+#
+#         ax1 = curr_ax
+#         ax1.hist([baseline_data[measurement_col],
+#                   disrupted_data[measurement_col]],
+#                  # alpha=0.5,
+#                  color=["k", 'b'],
+#                  bins=bins, density=True)
+#         # ax1.hist(disrupted_data[measurement_col], alpha=0.3, color="b",
+#         #          bins=bins, density=True)
+#
+#         ax1.set_yscale('log')
+#         ax1.set_xscale('log')
+#         ax1.tick_params(axis='both', which='major', labelsize=label_size)
+#
+#         # remove the axis label
+#         if condition != conditions[-1]:
+#             ax1.set_xticklabels(ax1.get_xticklabels(), visible=False)
+#         else:
+#             ax1.set_xlabel("Bout duration, log secs", size=label_size)
+#
+#         if condition == conditions[0]:
+#             ax1.set_title("Log histogram of bout duration", size=label_size)
+#
+#         ax1.text(0.8, 0.9, condition, transform=ax1.transAxes,
+#                  size=label_size)
+#
+# fig.text(0.07, 0.69, "Normalised density", rotation=90, size=label_size)
+# fig.text(0.5, 0.69, "Normalised density", rotation=90, size=label_size)
+#
+# # Plot scatterplot
+#
+# # create plots
+# lower_grid = gs.GridSpec(nrows=1, ncols=2, top=0.40, bottom=0.1,
+#                          figure=fig)
+# activity_ax = plt.subplot(lower_grid[:, 0])
+# sleep_ax = plt.subplot(lower_grid[:, 1])
+#
+# scatter_array = np.array([activity_ax, sleep_ax])
+#
+# median_col = scatter_data.columns[-2]
+# count_col = scatter_data.columns[-1]
+#
+# # loop through the data types
+# for sep_col, data_type in enumerate(data_types):
+#
+#     curr_scatter_axis = scatter_array[sep_col]
+#
+#     # select the data
+#     data_sep_type = scatter_data[scatter_data[data_type_col] == data_type]
+#     ymin = 0
+#     ymax = data_sep_type[median_col].max() * 0.8
+#     xmin = 0
+#     xmax = data_sep_type[count_col].max()
+#
+#     # create different conditions plots
+#     inner_grid_scatter = gs.GridSpecFromSubplotSpec(
+#         nrows=1, ncols=4, subplot_spec=curr_scatter_axis, wspace=0, hspace=0)
+#
+#     # grab the conditions to avoid sleep/activity missing
+#     conditions = data_sep_type[condition_col].unique()
+#
+#     # loop through the conditions
+#     for condition, grid in zip(conditions, inner_grid_scatter):
+#
+#         # select the data
+#         condition_scatter = data_sep_type[
+#             data_sep_type[condition_col] == condition
+#         ]
+#         baseline_data = condition_scatter[condition_scatter[section_col] ==
+#                                           sections[0]]
+#         disrupted_data = condition_scatter[condition_scatter[section_col] ==
+#                                            sections[1]]
+#
+#         # create the new axis
+#         ax2 = plt.Subplot(fig, grid)
+#         fig.add_subplot(ax2)
+#
+#         # plot the scatterplot on the axis
+#         # sns.scatterplot(x=count_col, y=median_col, hue=section_col,
+#         #                 data=condition_scatter, ax=ax2, alpha=0.5,
+#         #                 legend=False)
+#
+#         # try with a kdeplot instead
+#         sns.scatterplot(baseline_data[count_col],
+#                         baseline_data[median_col],
+#                         # shade=True,
+#                         # shade_lowest=True,
+#                         # cmap="Greys",
+#                         ax=ax2,
+#                         alpha=1)
+#         sns.scatterplot(disrupted_data[count_col],
+#                         disrupted_data[median_col],
+#                         # shade=False,
+#                         # shade_lowest=False,
+#                         # cmap="Blues",
+#                         ax=ax2,
+#                         alpha=0.5)
+#
+#         # set x and y axis
+#         ax2.set(ylim=[ymin, ymax],
+#                 xlim=[xmin, xmax],
+#                 facecolor='w')
+#         ax2.tick_params(axis='both', which='major', labelsize=label_size)
+#
+#         # remove the labels
+#         if condition != conditions[0]:
+#             ax2.set_yticks([])
+#             ax2.set_yticklabels(ax2.get_yticklabels(), visible=False)
+#         ax2.set_ylabel("")
+#         ax2.set_xlabel("")
+#
+#         # set the title to be each condition
+#         ax2.set_title(condition, size=label_size, rotation=45, va="top")
+#
+#         print(condition, baseline_data.describe())
+#
+#     # remove curr axis labels
+#     curr_scatter_axis.set_yticks([])
+#     curr_scatter_axis.set_xticks([])
+#
+#     # set axis label
+#     curr_scatter_axis.set_xlabel("Number of episodes per day", size=label_size)
+#     curr_scatter_axis.set_ylabel("Mean length of episodes per day, secs",
+#                                  size=label_size)
+#     curr_scatter_axis.yaxis.set_label_coords(-0.15, 0.5)
+#     curr_scatter_axis.xaxis.set_label_coords(0.5, -0.15)
+#
+# # add in activity and sleep columns
+# fig.text(0.25, 0.9, "Activity", size=label_size)
+# fig.text(0.75, 0.9, "Sleep", size=label_size)
+#
+# # create the legend
+# legend_lines = [Line2D([0], [0], color='w', alpha=0.8,
+#                        marker='o', markersize=10, label="Baseline",
+#                        markerfacecolor='0.5'),
+#                 Line2D([0], [0], color='w', alpha=0.4, marker='o',
+#                        markersize=10, label="Disrupted",
+#                        markerfacecolor='b')]
+# fig.legend(handles=legend_lines, loc=(0.87, 0.9), fontsize=label_size,
+#            frameon=False)
+# fig.legend(handles=legend_lines, loc=(0.87, 0.42), fontsize=label_size,
+#            frameon=False)
+#
+# fig.suptitle("Bout duration under different disrupting light cycles")
+# fig.set_size_inches(8.27, 11.69)
 
 plt.savefig(SAVE_FIG, dpi=600)
 
