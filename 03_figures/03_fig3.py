@@ -2,6 +2,12 @@
 # percentage change from baseline for IV, IS, Qp, others?
 
 # start with standard imports
+import actiPy.plots as aplot
+import actiPy.waveform as wave
+import actiPy.periodogram as per
+import actiPy.analysis as als
+import actiPy.preprocessing as prep
+import sys
 import pathlib
 import pandas as pd
 import numpy as np
@@ -13,17 +19,11 @@ import matplotlib.dates as mdates
 import seaborn as sns
 
 sns.set()
-import sys
 
 sys.path.insert(0, "/Users/angusfisk/Documents/01_PhD_files/"
                    "07_python_package/actiPy")
-import actiPy.preprocessing as prep
-import actiPy.analysis as als
-import actiPy.periodogram as per
-import actiPy.waveform as wave
-import actiPy.plots as aplot
 
-###### Step 1
+# Step 1
 #  define constants
 index_cols = [0, 1]
 idx = pd.IndexSlice
@@ -34,11 +34,12 @@ save_csv_dir = save_fig.parent / "00_csvs/"
 LDR_COL = -1
 col_names = ["protocol", "time", "animal", "measurement"]
 
+
 def longform(df,
              col_names: list):
     new_df = df.stack().reset_index()
     new_df.columns = col_names
-    
+
     return new_df
 
 
@@ -49,7 +50,7 @@ def norm_base_mean(protocol_df, baseline_str: str = "Baseline"):
     return normalised_df
 
 
-###### Step 2 tidy data
+# Step 2 tidy data
 #  import the files to read
 activity_dir = pathlib.Path('/Users/angusfisk/Documents/01_PhD_files/'
                             '01_projects/01_thesisdata/02_circdis/'
@@ -75,7 +76,7 @@ ldr_label = activity_df_ldr.columns[LDR_COL]
 activity_df = activity_df_ldr.drop(ldr_label, axis=1)
 sleep_df = sleep_df_ldr.drop(ldr_label, axis=1)
 
-######## Step 3 Calculate IV
+# Step 3 Calculate IV
 
 activity_iv_raw = als.intradayvar(activity_df, level=[0, 1])
 sleep_iv_raw = als.intradayvar(sleep_df, level=[0, 1])
@@ -94,14 +95,14 @@ sl_iv_label = sleep_iv_norm.groupby(level=0).apply(prep.label_anim_cols)
 activity_iv = longform(ac_iv_label, col_names=iv_cols)
 sleep_iv = longform(sl_iv_label, col_names=iv_cols)
 
-####### Step 4 Calculate Periodogram power
+# Step 4 Calculate Periodogram power
 
 # calculate the enright periodogram
 activity_qp = activity_df.groupby(
     level=[0, 1]
 ).apply(
     per._enright_periodogram,
-    level=[0,1]
+    level=[0, 1]
 )
 sleep_qp = sleep_df.groupby(
     level=[0, 1]
@@ -179,7 +180,7 @@ sl_max_power_label = sleep_max_norm.groupby(
 activity_max_power = longform(ac_max_power_label, col_names=power_cols)
 sleep_max_power = longform(sl_max_power_label, col_names=power_cols)
 
-####### Step 5 Calculate IS
+# Step 5 Calculate IS
 # Calculate IS
 
 # get max values from enright periodogram
@@ -205,25 +206,28 @@ sl_is_label = sleep_is_norm.groupby(level=0).apply(prep.label_anim_cols)
 activity_is = longform(ac_is_label, col_names=is_cols)
 sleep_is = longform(sl_is_label, col_names=is_cols)
 
-######### Step 6 Calculate light phase activity
+# Step 6 Calculate light phase activity
 
 # for non-free running
 # mask where lights are high
 # sum where lights are high
 # sum total
 # tada value
+
+
 def light_phase_activity_nfreerun(
         test_df,
-        ldr_label: str="LDR",
-        ldr_val: float=150
+        ldr_label: str = "LDR",
+        ldr_val: float = 150
 ):
     light_mask = test_df.loc[:, ldr_label] > ldr_val
     light_data = test_df[light_mask]
     light_sum = light_data.sum()
     total_sum = test_df.sum()
     light_phase_activity = light_sum / total_sum
-    
+
     return light_phase_activity
+
 
 activity_nfree_light = activity_df_ldr.groupby(
     level=[0, 1]
@@ -252,14 +256,15 @@ sleep_split = prep.split_list_with_periods(
     df_list=sleep_dfs
 )
 
+
 def light_phase_activity_freerun(test_df,
-                                 start_light = "2010-01-01 00:00:00",
-                                 end_light = "2010-01-01 12:00:00"):
+                                 start_light="2010-01-01 00:00:00",
+                                 end_light="2010-01-01 12:00:00"):
     light_data = test_df.loc[idx[:, :, :, start_light:end_light], :]
     light_sum = light_data.sum()
     total_sum = test_df.sum()
     light_phase_activity = light_sum / total_sum
-    
+
     return light_phase_activity
 
 
@@ -319,7 +324,7 @@ lp_cols[-1] = "Lightphase Activity"
 ac_lp_tidy = longform(ac_lp_norm_label, col_names=lp_cols)
 sl_lp_tidy = longform(sl_lp_norm_label, col_names=lp_cols)
 
-########## Step 7 Relative amplitude
+# Step 7 Relative amplitude
 
 # Get individual animal mean hourly activity
 activity_split_hourly = activity_split.groupby(
@@ -335,14 +340,16 @@ sleep_split_hourly = sleep_split.groupby(
 ).mean()
 sleep_mean_wave = sleep_split_hourly.mean(axis=1).unstack(level=2)
 
+
 def relative_amplitude(test_df):
     hourly_max = test_df.max()
     hourly_min = test_df.min()
     hourly_diff = hourly_max - hourly_min
     hourly_sum = hourly_max + hourly_min
     relative_amplitude = hourly_diff / hourly_sum
-    
+
     return relative_amplitude
+
 
 # calculate Relative amplitude
 activity_ra = activity_mean_wave.groupby(
@@ -386,7 +393,7 @@ ra_cols[-1] = "Relative Amplitude"
 ac_ra_tidy = longform(ac_ra_norm_label, col_names=ra_cols)
 sl_ra_tidy = longform(sl_ra_norm_label, col_names=ra_cols)
 
-####### Step 8 Calculate total sleep and activity
+# Step 8 Calculate total sleep and activity
 
 # calculate total sleep and activity
 ac_total_days = activity_split.groupby(
@@ -497,18 +504,18 @@ for mark_list, data_type in zip([ac_marks, sl_marks], data_types):
             pg.print_table(curr_ph)
 # save the tests into a dict
             ph_dict[protocol] = curr_ph
-        
+
         test_name = save_dir_names[no]
         curr_save_dir = save_testtype_dir / test_name
-        
+
         ph_savename = curr_save_dir / '02_posthoc.csv'
         ph_df = pd.concat(ph_dict)
         ph_df_markers_dict[curr_dep_var] = ph_df
         ph_df.to_csv(ph_savename)
-        
+
         anova_filename = curr_save_dir / "01_anova.csv"
         curr_rm.to_csv(anova_filename)
-    
+
     ph_df_markers_df = pd.concat(ph_df_markers_dict)
     ph_df_type_dict[data_type] = ph_df_markers_df
 
@@ -521,7 +528,7 @@ processed_data = pd.concat(processed_data_list, sort=False)
 save_dfcsv = save_csv_dir / "03_fig3.csv"
 processed_data.to_csv(save_dfcsv)
 
-###### Step 6 Plot
+# Step 6 Plot
 
 # constants
 nocols = 2
@@ -558,13 +565,13 @@ plt.subplots_adjust(hspace=0.3, wspace=0.2)
 # loop throuh sleep/activity in different columns
 for col_no, data_list in enumerate(data_type_list):
     axis_column = ax[:, col_no]
-    
+
     # loop through each measurement type for each row
     for row_no, data in enumerate(data_list):
         measurement_col = data.columns[-1]
         curr_ax = axis_column[row_no]
         conditions = data[condition_col].unique()
-        
+
         # plot using seaborn
         sns.pointplot(
             x=condition_col,
@@ -587,11 +594,11 @@ for col_no, data_list in enumerate(data_type_list):
             dodge=dodge,
             size=marker_size
         )
-        
+
         # remove the legend
         ax_leg = curr_ax.legend()
         ax_leg.remove()
-        
+
         # tidy axis
         curr_ax.set(xlabel="")
         if col_no == 0 and row_no == 4:
@@ -612,7 +619,7 @@ for col_no, data_list in enumerate(data_type_list):
             transform=curr_ax.transAxes,
             fontsize=panelsize
         )
-        
+
         # add in statistical sig bars
 
         # get y value for sig line
@@ -624,13 +631,13 @@ for col_no, data_list in enumerate(data_type_list):
             curr_ax=curr_ax,
             sig_line_ylevel=sig_line_ylevel_recovery
         )
-        
+
         # get the locations for xvals to look up
         locs = curr_ax.get_xticks()
         labels = curr_ax.get_xticklabels()
         label_text = [x.get_text() for x in labels]
         label_loc_dict = dict(zip(label_text, locs))
-        
+
         # get x vals for sig line
         # get the right df to lookup
         marker_types = ph_df_bothtypes.index.get_level_values(1).unique()
@@ -658,10 +665,10 @@ for col_no, data_list in enumerate(data_type_list):
                 xmax=hxvals_axes_xval[1],
                 color='C1'
             )
-            
+
         for xval_label in sig_recovery:
             curr_xval = label_loc_dict[xval_label]
-            hxvals = [curr_xval- data_sep_value, curr_xval + data_sep_value]
+            hxvals = [curr_xval - data_sep_value, curr_xval + data_sep_value]
             hxvals_axes = curr_ax.transLimits.transform([(hxvals[0], 0),
                                                          (hxvals[1], 0)])
             hxvals_axes_xval = hxvals_axes[:, 0]
