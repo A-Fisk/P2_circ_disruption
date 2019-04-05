@@ -142,6 +142,7 @@ sleep_periods = sleep_df.groupby(
     return_power=False,
     return_periods=True,
     drop_lastcol=False
+)
 
 for df in activity_power, sleep_power:
     df.columns = df.columns.droplevel(1)
@@ -521,7 +522,6 @@ save_dfcsv = save_csv_dir / "03_fig3.csv"
 processed_data.to_csv(save_dfcsv)
 
 ###### Step 6 Plot
-# plot all on the same figure
 
 # constants
 nocols = 2
@@ -539,17 +539,21 @@ dodge = 0.5
 marker_size = 3
 col_title_size = 13
 label_size = 10
+no_size = 8
 data_sep_value = 0.3
 sig_val = 0.05
 sig_col = "p-tukey"
 sig_line_ylevel_disrupt = 0.9
 sig_line_ylevel_recovery = 0.95
+panels = [
+    ["A", "B", "C", "D", "E", "F"],
+    ["G", "H", "I", "J", "K", "L"]
+]
+panelsize = 10
 
 # create figure with right number of rows and cols
 fig, ax = plt.subplots(nrows=len(activity_list), ncols=nocols)
-
-# set default font size
-plt.rcParams.update({"font.size": 10})
+plt.subplots_adjust(hspace=0.3, wspace=0.2)
 
 # loop throuh sleep/activity in different columns
 for col_no, data_list in enumerate(data_type_list):
@@ -557,30 +561,32 @@ for col_no, data_list in enumerate(data_type_list):
     
     # loop through each measurement type for each row
     for row_no, data in enumerate(data_list):
-        
         measurement_col = data.columns[-1]
         curr_ax = axis_column[row_no]
         conditions = data[condition_col].unique()
         
         # plot using seaborn
-        sns.pointplot(x=condition_col,
-                      y=measurement_col,
-                      hue=section_col,
-                      data=data,
-                      ax=curr_ax,
-                      join=False,
-                      capsize=capsize,
-                      errwidth=errwidth,
-                      dodge=dodge,
-                      ci=sem)
-        
-        sns.swarmplot(x=condition_col,
-                      y=measurement_col,
-                      hue=section_col,
-                      data=data,
-                      ax=curr_ax,
-                      dodge=dodge,
-                      size=marker_size)
+        sns.pointplot(
+            x=condition_col,
+            y=measurement_col,
+            hue=section_col,
+            data=data,
+            ax=curr_ax,
+            join=False,
+            capsize=capsize,
+            errwidth=errwidth,
+            dodge=dodge,
+            ci=sem
+        )
+        sns.swarmplot(
+            x=condition_col,
+            y=measurement_col,
+            hue=section_col,
+            data=data,
+            ax=curr_ax,
+            dodge=dodge,
+            size=marker_size
+        )
         
         # remove the legend
         ax_leg = curr_ax.legend()
@@ -592,12 +598,21 @@ for col_no, data_list in enumerate(data_type_list):
             ylim = [40, 120]
             curr_ax.set(ylim=ylim)
         # ylim=ylim)
-        curr_ax.tick_params(axis='both', which='major', labelsize=label_size)
+        curr_ax.tick_params(axis='both', which='major', labelsize=no_size)
         if col_no == 0:
             curr_ax.set_ylabel(measurement_col, fontsize=label_size)
         else:
             curr_ax.set_ylabel("")
 
+        curr_panel = panels[col_no][row_no]
+        curr_ax.text(
+            -0.1,
+            1.1,
+            curr_panel,
+            transform=curr_ax.transAxes,
+            fontsize=panelsize
+        )
+        
         # add in statistical sig bars
 
         # get y value for sig line
@@ -660,15 +675,17 @@ for col_no, data_list in enumerate(data_type_list):
 
 # set the legend
 handles, legends = curr_ax.get_legend_handles_labels()
-fig.legend(handles=handles[:3], loc=(0.85, 0.9), fontsize=label_size,
-           markerscale=0.5)
-
-# set sizing parameters
-plt.subplots_adjust(hspace=0.3, wspace=0.2)
+fig.legend(
+    handles=handles[:3],
+    loc=(0.85, 0.9),
+    fontsize=label_size,
+    markerscale=0.5
+)
 
 # set titles
-fig.suptitle("Effect on different light conditions on circadian "
-             "disruption markers. Mean +/- SEM")
+fig.suptitle(
+    "Effect on different light conditions on circadian disruption markers"
+)
 type_label_xval = 0.5
 type_label_yval = 1.1
 fig.text(
@@ -685,6 +702,21 @@ fig.text(
     "Sleep",
     transform=ax[0, 1].transAxes,
     fontsize=col_title_size,
+    ha='center'
+)
+fig.text(
+    0.02,
+    0.5,
+    "Percentage of baseline mean, +/-SEM",
+    rotation=90,
+    fontsize=label_size,
+    va='center'
+)
+fig.text(
+    0.5,
+    0.02,
+    "Protocols",
+    fontsize=label_size,
     ha='center'
 )
 
