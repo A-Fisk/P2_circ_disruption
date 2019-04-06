@@ -277,75 +277,128 @@ sleep_data = scatter_data[sl_mask]
 
 median = "Mean"
 count = "Count"
-within = COL_NAMES[2]
-between = COL_NAMES[1]
+time_col = COL_NAMES[2]
+protocol_col = COL_NAMES[1]
 subjects = COL_NAMES[3]
+type_col = COL_NAMES[0]
 
 act_test_dir = save_csv_dir / "01_activity"
 sl_test_dir = save_csv_dir / "02_sleep"
 
-# 1. First main question - is the duration of episodes significantly affected
-# by time and by protocol
-# ANOVA on median length per day
+act_ph_dict = {}
+sl_ph_dict = {}
 
-med_csv = "01_median.csv"
-ac_med_file = act_test_dir / med_csv
-ac_med_rm = pg.mixed_anova(dv=median,
-                           within=within,
-                           between=between,
-                           subject=subjects,
-                           data=activity_data)
-pg.print_table(ac_med_rm)
-ac_med_rm.to_csv(ac_med_file)
+# 1. Are the number of episodes different?
 
-sl_med_file = sl_test_dir / med_csv
-sl_med_rm = pg.mixed_anova(dv=median,
-                           within=within,
-                           between=between,
-                           subject=subjects,
-                           data=sleep_data)
-pg.print_table(sl_med_rm)
-sl_med_rm.to_csv(sl_med_file)
-
-# post hoc test for sleep med
-protocols = sleep_data[between].unique()
-ph_dict = {}
-for protocol in protocols:
-    protocol_mask = sleep_data[between] == protocol
-    protocol_df = sleep_data[protocol_mask]
-
-    ph = pg.pairwise_tukey(dv=median,
-                           between=within,
-                           data=protocol_df)
-    print(protocol)
-    pg.print_table(ph)
-
-    ph_dict[protocol] = ph
-ph_df = pd.concat(ph_dict)
-ph_name = sl_test_dir / "03_med_ph.csv"
-ph_df.to_csv(ph_name)
-
-# 2. Are the number of episodes different?
-
-count_csv = "02_count.csv"
+count_csv = "01_count.csv"
+print(count_csv)
 ac_ct_file = act_test_dir / count_csv
 ac_count_rm = pg.mixed_anova(dv=count,
-                             within=within,
-                             between=between,
+                             within=time_col,
+                             between=protocol_col,
                              subject=subjects,
                              data=activity_data)
+print('Activity')
 pg.print_table(ac_count_rm)
 ac_count_rm.to_csv(ac_ct_file)
+ph_count_act = prep.tukey_pairwise_ph(
+    activity_data,
+    hour_col=protocol_col,
+    dep_var=count,
+    protocol_col=time_col
+)
+ph_name = act_test_dir / "04_count_ph.csv"
+ph_count_act.to_csv(ph_name)
+act_ph_dict[count] = ph_count_act
 
 sl_ct_file = sl_test_dir / count_csv
 sl_count_rm = pg.mixed_anova(dv=count,
-                             within=within,
-                             between=between,
+                             within=time_col,
+                             between=protocol_col,
                              subject=subjects,
                              data=sleep_data)
+print('Sleep')
 pg.print_table(sl_count_rm)
 sl_count_rm.to_csv(sl_ct_file)
+ph_count_sl = prep.tukey_pairwise_ph(
+    sleep_data,
+    hour_col=protocol_col,
+    dep_var=count,
+    protocol_col=time_col
+)
+ph_name = sl_test_dir / "04_count_ph.csv"
+ph_count_sl.to_csv(ph_name)
+sl_ph_dict[count] = ph_count_sl
 
+# 2. Are the duration of episodes different?
+
+med_csv = "02_mean.csv"
+print(med_csv)
+ac_med_file = act_test_dir / med_csv
+ac_med_rm = pg.mixed_anova(dv=median,
+                           within=time_col,
+                           between=protocol_col,
+                           subject=subjects,
+                           data=activity_data)
+print('Activity')
+pg.print_table(ac_med_rm)
+ac_med_rm.to_csv(ac_med_file)
+ph_med_ac = prep.tukey_pairwise_ph(
+    activity_data,
+    hour_col=protocol_col,
+    dep_var=median,
+    protocol_col=time_col
+)
+ph_name = act_test_dir / "03_med_ph.csv"
+ph_med_ac.to_csv(ph_name)
+act_ph_dict[median] = ph_med_ac
+
+sl_med_file = sl_test_dir / med_csv
+sl_med_rm = pg.mixed_anova(dv=median,
+                           within=time_col,
+                           between=protocol_col,
+                           subject=subjects,
+                           data=sleep_data)
+print('Sleep')
+pg.print_table(sl_med_rm)
+sl_med_rm.to_csv(sl_med_file)
+
+# Significant differences on ANOVA so post hoc Tukeys test
+ph_med_sl = prep.tukey_pairwise_ph(
+    sleep_data,
+    hour_col=protocol_col,
+    dep_var=median,
+    protocol_col=time_col
+)
+ph_name = sl_test_dir / "03_med_ph.csv"
+ph_med_sl.to_csv(ph_name)
+sl_ph_dict[median] = ph_med_sl
+
+
+# Q3 What duration of episodes are affected?
+duration_col = hist_cols[-2]
+no_ep_col = hist_cols[-1]
+hist_ph_dr = save_csv_dir / "03_histogram"
+
+test_hist = long_hist.set_index([hist_cols[0], hist_cols[1]])
+
+def groupby_ph_test(test_hist):
+    print(test_hist.iloc[0].index)
+    hist_ph = prep.tukey_pairwise_ph(
+        test_hist,
+        hour_col=duration_col,
+        dep_var=no_ep_col,
+        protocol_col=time_col
+    )
+    return hist_ph
+
+hist_ph = test_hist.groupby(
+    level=[0, 1]
+).apply(
+    groupby_ph_test
+)
+hist_ph_name = hist_ph_dir / "01_hist_ph.csv"
+hist_ph.to_csv(hist_ph_name)
 
 ######### Step 4 Plot all together#############################################
 
@@ -460,19 +513,6 @@ for col_no, data_type in enumerate(data_types):
         curr_ax = curr_ax_list[row_no]
         curr_data = curr_data_type.query("%s == '%s'"%(condition_col,
                                                        condition))
-        curr_ax.text(
-            0.5,
-            0.5,
-            data_type,
-            transform=curr_ax.transAxes
-        )
-        curr_ax.text(
-            0.5,
-            0.5,
-            condition,
-            transform=curr_ax.transAxes
-        )
- 
         
         sns.pointplot(
             x=duration_col,
