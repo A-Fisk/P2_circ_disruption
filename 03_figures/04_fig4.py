@@ -108,22 +108,54 @@ periods_dict = {
 periods_df = pd.concat(periods_dict).stack()
 
 
-# Step 2 remove post-baseline
-data_type = all_data.index.get_level_values(0).unique()
-conditions = all_data.index.get_level_values(1).unique()
-sections = all_data.index.get_level_values(2).unique()
-removed_data = all_data.loc[idx[:, :, :sections[-2]], :]
+# Step 2 calculate histogram of episode durations
+# Getting mean of
+bins = [(x*60) for x in [0, 1, 10, 60, 60000000]]
+hist_bin_cols = ["1", "10", "60", ">60"]
+def hist_vals(test_data, bins, hist_cols, **kwargs):
+    hist = np.histogram(test_data, bins, **kwargs)
+    hist_vals = pd.DataFrame(hist[0], index=hist_cols)
+    return hist_vals
 
-# relabel animal names
-removed_rename = removed_data.groupby(
-    level=[0, 1, 2]
+# correct for period
+activity_split = prep.split_list_with_periods(
+    name_df=activity_periods,
+    df_list=activity_dfs
+)
+sleep_split = prep.split_list_with_periods(
+    name_df=sleep_periods,
+    df_list=sleep_dfs
+)
+split_dict = {
+    "activity": activity_split,
+    "sleep": sleep_split
+}
+split_df = pd.concat(split_dict)
+hist_input = split_df.stack().reorder_levels([0, 1, 2, 3, 5, 4]).sort_index()
+hist_data = hist_input.groupby(
+    level=[0, 1, 2, 3, 4]
+).apply(
+    hist_vals,
+    bins=bins,
+    hist_cols = hist_bin_cols,
+).unstack(
+    level=4
+)
+hist_anim_mean = hist_data.mean(axis=1).unstack(level=-2)
+hist_label = hist_anim_mean.groupby(
+    level=[0, 1, 2, 3]
 ).apply(
     prep.label_anim_cols,
     level_index=1
 )
-
-long_removed = longform(removed_rename, col_names=COL_NAMES)
-
+hist_cols = COL_NAMES.copy()
+hist_cols[-1] = "Duration"
+hist_cols.append("Number of Episodes")
+long_hist = hist_label.stack(
+).reorder_levels(
+    [0, 1, 2, 4, 3]
+).reset_index()
+long_hist.columns = hist_cols
 
 # Step 3 Calculate mean length per day and count per day
 
@@ -196,7 +228,7 @@ above_zero = (all_data > 0).astype(
     bool
 ).stack().reorder_levels([0, 1, 2, 4, 3])
 count_data = manual_mean_groupby(
-    old_above_zero,
+    above_zero,
     mean=False,
     sum=True
 ).unstack(
@@ -232,7 +264,7 @@ scatter_data["Count"] = count_long.iloc[:, -1]
 # start with just saving to send to snp.
 save_dir = SAVE_FIG.parent / "00_csvs"
 length_csv = save_dir / "04_fig4_length.csv"
-long_removed.to_csv(length_csv)
+long_hist.to_csv(length_csv)
 scatter_csv = save_dir / "04_fig4_scatter.csv"
 scatter_data.to_csv(scatter_csv)
 
@@ -327,10 +359,13 @@ animal_col = COL_NAMES[-2]
 data_type_col = COL_NAMES[0]
 bins = np.geomspace(10, 3600, 10)
 label_size = 8
-data = long_removed
+data = long_hist
 data_types = data[data_type_col].unique()
+conditions = data[condition_col].unique()
 sections = data[section_col].unique()
 animals = data[animal_col].unique()
+duration_col = hist_cols[-2]
+no_ep_col = hist_cols[-1]
 marker_types = [count_cols[-1], med_cols[-1]]
 med_count_data = {
     marker_types[0]: count_long,
@@ -352,15 +387,15 @@ count_grid = gs.GridSpec(
     ncols=2,
     figure=fig,
     top=0.9,
-    bottom=0.7
+    bottom=0.75
 )
 count_axes = [plt.subplot(x) for x in count_grid]
 median_grid = gs.GridSpec(
     nrows=1,
     ncols=2,
     figure=fig,
-    top=0.7,
-    bottom=0.5
+    top=0.75,
+    bottom=0.6
 )
 median_axes = [plt.subplot(x) for x in median_grid]
 
@@ -395,184 +430,74 @@ for marker, type_axis in zip(marker_types, med_count_axes):
         legend = curr_ax.legend()
         legend.remove()
 
-#
-#
-# upper_grid = gs.GridSpec(
-#     nrows=4,
-#     ncols=2,
-#     figure=fig,
-#     top=0.85,
-#     bottom=0.5,
-#     hspace=0
-# )
-#
-# histogram_axes = []
-# for row in range(4):
-#     col_axes = []
-#     for col in range(2):
-#         add_ax = plt.subplot(upper_grid[row, col])
-#         col_axes.append(add_ax)
-#     histogram_axes.append(col_axes)
-#
-# histogram_axes_array = np.array(histogram_axes)
-#
-#
-# # Plot histograms
-#
-# # loop through the data types
-# for col_no, data_type in enumerate(data_types):
-#
-#     # select the column
-#     axis_column = histogram_axes_array[:, col_no]
-#
-#     # select just the data type
-#     # need to grab data type here as pir_data_sleep
-#     data_sep_type = data[data[data_type_col] == data_type]
-#     conditions = data_sep_type[condition_col].unique()
-#
-#     # loop through all the conditions
-#     for row_no, condition in enumerate(conditions):
-#
-#         curr_ax = axis_column[row_no]
-#
-#         # select the data
-#         curr_data = data[data[condition_col] == condition]
-#         baseline_data = curr_data[curr_data[section_col]
-#                                   == sections[0]]
-#         disrupted_data = curr_data[curr_data[section_col]
-#                                    == sections[1]]
-#
-#         ax1 = curr_ax
-#         ax1.hist([baseline_data[measurement_col],
-#                   disrupted_data[measurement_col]],
-#                  # alpha=0.5,
-#                  color=["k", 'b'],
-#                  bins=bins, density=True)
-#         # ax1.hist(disrupted_data[measurement_col], alpha=0.3, color="b",
-#         #          bins=bins, density=True)
-#
-#         ax1.set_yscale('log')
-#         ax1.set_xscale('log')
-#         ax1.tick_params(axis='both', which='major', labelsize=label_size)
-#
-#         # remove the axis label
-#         if condition != conditions[-1]:
-#             ax1.set_xticklabels(ax1.get_xticklabels(), visible=False)
-#         else:
-#             ax1.set_xlabel("Bout duration, log secs", size=label_size)
-#
-#         if condition == conditions[0]:
-#             ax1.set_title("Log histogram of bout duration", size=label_size)
-#
-#         ax1.text(0.8, 0.9, condition, transform=ax1.transAxes,
-#                  size=label_size)
-#
-# fig.text(0.07, 0.69, "Normalised density", rotation=90, size=label_size)
-# fig.text(0.5, 0.69, "Normalised density", rotation=90, size=label_size)
-#
-# # Plot scatterplot
-#
-# # create plots
-# lower_grid = gs.GridSpec(nrows=1, ncols=2, top=0.40, bottom=0.1,
-#                          figure=fig)
-# activity_ax = plt.subplot(lower_grid[:, 0])
-# sleep_ax = plt.subplot(lower_grid[:, 1])
-#
-# scatter_array = np.array([activity_ax, sleep_ax])
-#
-# median_col = scatter_data.columns[-2]
-# count_col = scatter_data.columns[-1]
-#
-# # loop through the data types
-# for sep_col, data_type in enumerate(data_types):
-#
-#     curr_scatter_axis = scatter_array[sep_col]
-#
-#     # select the data
-#     data_sep_type = scatter_data[scatter_data[data_type_col] == data_type]
-#     ymin = 0
-#     ymax = data_sep_type[median_col].max() * 0.8
-#     xmin = 0
-#     xmax = data_sep_type[count_col].max()
-#
-#     # create different conditions plots
-#     inner_grid_scatter = gs.GridSpecFromSubplotSpec(
-#         nrows=1, ncols=4, subplot_spec=curr_scatter_axis, wspace=0, hspace=0)
-#
-#     # grab the conditions to avoid sleep/activity missing
-#     conditions = data_sep_type[condition_col].unique()
-#
-#     # loop through the conditions
-#     for condition, grid in zip(conditions, inner_grid_scatter):
-#
-#         # select the data
-#         condition_scatter = data_sep_type[
-#             data_sep_type[condition_col] == condition
-#         ]
-#         baseline_data = condition_scatter[condition_scatter[section_col] ==
-#                                           sections[0]]
-#         disrupted_data = condition_scatter[condition_scatter[section_col] ==
-#                                            sections[1]]
-#
-#         # create the new axis
-#         ax2 = plt.Subplot(fig, grid)
-#         fig.add_subplot(ax2)
-#
-#         # plot the scatterplot on the axis
-#         # sns.scatterplot(x=count_col, y=median_col, hue=section_col,
-#         #                 data=condition_scatter, ax=ax2, alpha=0.5,
-#         #                 legend=False)
-#
-#         # try with a kdeplot instead
-#         sns.scatterplot(baseline_data[count_col],
-#                         baseline_data[median_col],
-#                         # shade=True,
-#                         # shade_lowest=True,
-#                         # cmap="Greys",
-#                         ax=ax2,
-#                         alpha=1)
-#         sns.scatterplot(disrupted_data[count_col],
-#                         disrupted_data[median_col],
-#                         # shade=False,
-#                         # shade_lowest=False,
-#                         # cmap="Blues",
-#                         ax=ax2,
-#                         alpha=0.5)
-#
-#         # set x and y axis
-#         ax2.set(ylim=[ymin, ymax],
-#                 xlim=[xmin, xmax],
-#                 facecolor='w')
-#         ax2.tick_params(axis='both', which='major', labelsize=label_size)
-#
-#         # remove the labels
-#         if condition != conditions[0]:
-#             ax2.set_yticks([])
-#             ax2.set_yticklabels(ax2.get_yticklabels(), visible=False)
-#         ax2.set_ylabel("")
-#         ax2.set_xlabel("")
-#
-#         # set the title to be each condition
-#         ax2.set_title(condition, size=label_size, rotation=45, va="top")
-#
-#         print(condition, baseline_data.describe())
-#
-#     # remove curr axis labels
-#     curr_scatter_axis.set_yticks([])
-#     curr_scatter_axis.set_xticks([])
-#
-#     # set axis label
-#     curr_scatter_axis.set_xlabel("Number of episodes per day", size=label_size)
-#     curr_scatter_axis.set_ylabel("Mean length of episodes per day, secs",
-#                                  size=label_size)
-#     curr_scatter_axis.yaxis.set_label_coords(-0.15, 0.5)
-#     curr_scatter_axis.xaxis.set_label_coords(0.5, -0.15)
-#
-# # add in activity and sleep columns
-# fig.text(0.25, 0.9, "Activity", size=label_size)
-# fig.text(0.75, 0.9, "Sleep", size=label_size)
-#
-# # create the legend
+# Plot histograms
+# Create axes
+hist_grid = gs.GridSpec(
+    nrows=4,
+    ncols=2,
+    figure=fig,
+    top=0.55,
+    hspace=0
+)
+hist_axes = [plt.subplot(x) for x in hist_grid]
+act_axes = hist_axes[::2]
+sl_axes = hist_axes[1::2]
+both_hist_axes = [act_axes, sl_axes]
+# loop through the data types
+for col_no, data_type in enumerate(data_types):
+    
+    # select the axis list
+    curr_ax_list = both_hist_axes[col_no]
+    
+    # select just the data type
+    curr_data_type = long_hist.query("%s == '%s'"%(data_type_col, data_type))
+
+    # loop through all the conditions
+    for row_no, condition in enumerate(conditions):
+        
+
+        # select the data and axis
+        curr_ax = curr_ax_list[row_no]
+        curr_data = curr_data_type.query("%s == '%s'"%(condition_col,
+                                                       condition))
+        curr_ax.text(
+            0.5,
+            0.5,
+            data_type,
+            transform=curr_ax.transAxes
+        )
+        curr_ax.text(
+            0.5,
+            0.5,
+            condition,
+            transform=curr_ax.transAxes
+        )
+ 
+        
+        sns.pointplot(
+            x=duration_col,
+            y=no_ep_col,
+            hue=section_col,
+            data=curr_data,
+            ax=curr_ax,
+            join=False,
+            dodge=dodge,
+            capsize=capsize,
+            errwidth=errwidth,
+            ci=sem
+        )
+        sns.swarmplot(
+            x=duration_col,
+            y=no_ep_col,
+            hue=section_col,
+            data=curr_data,
+            ax=curr_ax,
+            dodge=dodge,
+            size=marker_size
+        )
+        curr_legend = curr_ax.legend()
+        curr_legend.remove()
+# create the legend
 # legend_lines = [Line2D([0], [0], color='w', alpha=0.8,
 #                        marker='o', markersize=10, label="Baseline",
 #                        markerfacecolor='0.5'),
