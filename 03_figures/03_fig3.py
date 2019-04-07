@@ -2,11 +2,6 @@
 # percentage change from baseline for IV, IS, Qp, others?
 
 # start with standard imports
-import actiPy.plots as aplot
-import actiPy.waveform as wave
-import actiPy.periodogram as per
-import actiPy.analysis as als
-import actiPy.preprocessing as prep
 import sys
 import pathlib
 import pandas as pd
@@ -22,6 +17,12 @@ sns.set()
 
 sys.path.insert(0, "/Users/angusfisk/Documents/01_PhD_files/"
                    "07_python_package/actiPy")
+import actiPy.plots as aplot
+import actiPy.waveform as wave
+import actiPy.periodogram as per
+import actiPy.analysis as als
+import actiPy.preprocessing as prep
+
 
 # Step 1
 #  define constants
@@ -148,6 +149,34 @@ sleep_periods = sleep_df.groupby(
 for df in activity_power, sleep_power:
     df.columns = df.columns.droplevel(1)
 
+
+def get_secs_mean_df(test_periods):
+    secs_values = test_periods.values.astype(np.int64)
+    secs_df = pd.DataFrame(
+        secs_values,
+        index=test_periods.index,
+        columns=test_periods.columns
+    )
+    secs_mean = secs_df.mean(axis=1)
+    secs_sem = secs_df.sem(axis=1)
+    secs_mean_df = pd.DataFrame(index=secs_mean.index)
+    secs_mean_df["Mean"] = pd.to_timedelta(secs_mean)
+    secs_mean_df["sem"] = pd.to_timedelta(secs_sem)
+    
+    return secs_mean_df
+
+
+period_mean_dict = {}
+for test_period, test_label in zip(
+        [activity_periods, sleep_periods],
+        ["activity", "sleep"]
+):
+    mean_period = get_secs_mean_df(test_period)
+    period_mean_dict[test_label] = mean_period
+period_mean_df = pd.concat(period_mean_dict)
+
+
+
 # calculate max periodogram power
 activity_max_power_raw = activity_power.groupby(level=[0, 1]).max()
 sleep_max_power_raw = sleep_power.groupby(level=[0, 1]).max()
@@ -247,6 +276,41 @@ sleep_nfree_light = sleep_df_ldr.groupby(
 # set all baseline periods to be 24 hours
 for df in [activity_periods, sleep_periods]:
     df.loc[idx[:, "Baseline"], :] = pd.Timedelta("1D")
+period_dir = save_csv_dir / "03_fig3/03_periods"
+activity_name = period_dir / "01_activity_periods.csv"
+activity_periods.to_csv(activity_name)
+sleep_name = period_dir / "02_sleep_periods.csv"
+sleep_periods.to_csv(sleep_name)
+
+def get_secs_mean_df(test_periods):
+    secs_values = test_periods.values.astype(np.int64)
+    secs_df = pd.DataFrame(
+        secs_values,
+        index=test_periods.index,
+        columns=test_periods.columns
+    )
+    secs_mean = secs_df.mean(axis=1)
+    secs_sem = secs_df.sem(axis=1)
+    secs_mean_df = pd.DataFrame(index=secs_mean.index)
+    secs_mean_df["Mean"] = pd.to_timedelta(secs_mean)
+    secs_mean_df["sem"] = pd.to_timedelta(secs_sem)
+    
+    return secs_mean_df
+
+
+period_mean_dict = {}
+for test_period, test_label in zip(
+        [activity_periods, sleep_periods],
+        ["activity", "sleep"]
+):
+    mean_period = get_secs_mean_df(test_period)
+    period_mean_dict[test_label] = mean_period
+period_mean_df = pd.concat(period_mean_dict)
+
+period_mean_name = period_dir / "03_periods_means.csv"
+period_mean_df.to_csv(period_mean_name)
+
+
 activity_split = prep.split_list_with_periods(
     name_df=activity_periods,
     df_list=activity_dfs
@@ -394,46 +458,51 @@ ac_ra_tidy = longform(ac_ra_norm_label, col_names=ra_cols)
 sl_ra_tidy = longform(sl_ra_norm_label, col_names=ra_cols)
 
 # Step 8 Calculate total sleep and activity
+both_dict = {
+    "activity": activity_df,
+    "sleep": sleep_df
+}
+both_df = pd.concat(both_dict).stack().reorder_levels([0, 1, 2, 4, 3])
+both_periods_dict = dict(zip(both_dict.keys(), [activity_periods,
+                                                sleep_periods]))
+both_periods_df = pd.concat(both_periods_dict)
+ac_total_days = prep.manual_resample_mean_groupby(
+    both_df,
+    both_periods_df,
+    sum=True,
+    mean=False
+)
+ac_total_days_mean = ac_total_days.groupby(
+    level=[0, 1, 2, 3]
+).mean().unstack(level=3)
 
-# calculate total sleep and activity
-ac_total_days = activity_split.groupby(
-    level=[0, 1, 2]
-).sum()
-ac_total = ac_total_days.mean(axis=1).unstack(level=2)
-sl_total_days = sleep_split.groupby(
-    level=[0, 1, 2]
-).sum()
-sl_total = sl_total_days.mean(axis=1).unstack(level=2)
+def norm_base_mean_both(protocol_df, baseline_str: str = "Baseline"):
+    base_values = protocol_df.loc[idx[:, :, baseline_str], :]
+    normalise_value = base_values.mean().mean()
+    normalised_df = (protocol_df / normalise_value) * 100
+    return normalised_df
 
 # norm base mean
-ac_total_norm = ac_total.groupby(
-    level=0
+total_days_norm = ac_total_days_mean.groupby(
+    level=[0, 1]
 ).apply(
-    norm_base_mean
+    norm_base_mean_both
 )
-sl_total_norm = sl_total.groupby(
-    level=0
-).apply(
-    norm_base_mean
-)
-
 # label animal cols
-ac_total_norm_label = ac_total_norm.groupby(
-    level=0
+total_days_label = total_days_norm.groupby(
+    level=[0, 1]
 ).apply(
-    prep.label_anim_cols
+    prep.label_anim_cols,
+    level_index=1
 )
-sl_total_norm_label = sl_total_norm.groupby(
-    level=0
-).apply(
-    prep.label_anim_cols
-)
+total_activity_df = total_days_label.loc["activity"]
+total_sleep_df = total_days_label.loc["sleep"]
 
 # longform
 tot_cols = col_names.copy()
 tot_cols[-1] = "Total Activity/Sleep"
-ac_tot_tidy = longform(ac_total_norm_label, col_names=tot_cols)
-sl_tot_tidy = longform(sl_total_norm_label, col_names=tot_cols)
+ac_tot_tidy = longform(total_activity_df, col_names=tot_cols)
+sl_tot_tidy = longform(total_sleep_df, col_names=tot_cols)
 
 
 ####### Stats #######
