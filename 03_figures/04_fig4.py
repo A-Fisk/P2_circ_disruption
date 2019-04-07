@@ -724,7 +724,7 @@ handles, legends = curr_ax.get_legend_handles_labels()
 fig.legend(
     handles=handles[:3],
     loc=(0.87, 0.91),
-    fontsize=label_size,
+    fontsize=tick_label_size,
     markerscale=0.5
 )
 
