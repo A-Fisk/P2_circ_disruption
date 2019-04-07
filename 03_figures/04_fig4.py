@@ -16,7 +16,7 @@ sns.set()
 sys.path.insert(0, "/Users/angusfisk/Documents/01_PhD_files/"
                    "07_python_package/actiPy")
 import actiPy.preprocessing as prep
-import actiPy.periodogram as per
+import actiPy.plots as aplot
 
 # CONSTANTS
 INDEX_COLS = [0, 1]
@@ -111,7 +111,7 @@ periods_df = pd.concat(periods_dict).stack()
 # Step 2 calculate histogram of episode durations
 # Getting mean of
 bins = [(x*60) for x in [0, 1, 10, 60, 60000000]]
-hist_bin_cols = ["1", "10", "60", ">60"]
+hist_bin_cols = ["0-1", "1-10", "10-60", ">60"]
 def hist_vals(test_data, bins, hist_cols, **kwargs):
     hist = np.histogram(test_data, bins, **kwargs)
     hist_vals = pd.DataFrame(hist[0], index=hist_cols)
@@ -378,7 +378,7 @@ sl_ph_dict[median] = ph_med_sl
 # Q3 What duration of episodes are affected?
 duration_col = hist_cols[-2]
 no_ep_col = hist_cols[-1]
-hist_ph_dr = save_csv_dir / "03_histogram"
+hist_ph_dir = save_csv_dir / "03_histogram"
 
 test_hist = long_hist.set_index([hist_cols[0], hist_cols[1]])
 
@@ -403,15 +403,12 @@ hist_ph.to_csv(hist_ph_name)
 ######### Step 4 Plot all together#############################################
 
 # plotting constants
-nocols = 2
-norows = 5
+# looping/selecting data constants
 condition_col = COL_NAMES[1]
 section_col = COL_NAMES[2]
 measurement_col = COL_NAMES[-1]
 animal_col = COL_NAMES[-2]
 data_type_col = COL_NAMES[0]
-bins = np.geomspace(10, 3600, 10)
-label_size = 8
 data = long_hist
 data_types = data[data_type_col].unique()
 conditions = data[condition_col].unique()
@@ -425,12 +422,51 @@ med_count_data = {
     marker_types[1]: median_long
 }
 
+# sig constants
+sig_ylevel_disrupt = 0.9
+sig_ylevel_recovery = 0.95
+ph_med_count_dict = dict(zip(data_types, [act_ph_dict, sl_ph_dict]))
+minus_sigval = 0.3
+plus_sigval = 0.3
+
+# Tidy constants
+sleep_hist_ylim = [0, 120]
+act_hist_ylim = [0, 375]
+mean_ylim = [25, 275]
+xlabelsize = 10
+ylabelsize = 10
+tick_label_size = 8
+panel_size = 8
+panel_xpos = -0.17
+panel_ypos = 0.9
+mean_count_ylabel_dict = dict(
+    zip(
+        marker_types,
+        ["No. Episodes", "Mean Duration"]
+    )
+)
+count_med_panels = {
+    marker_types[0]: {
+        data_types[0]: "A",
+        data_types[1]: "G",
+    },
+    marker_types[1]: {
+        data_types[0]: "B",
+        data_types[1]: "H",
+    },
+}
+hist_panels = [
+    ["C", "D", "E", "F"],
+    ["I", "J", "K", "L"]
+]
+
+
 # point/swarm plot
 dodge = 0.5
 capsize = 0.2
 errwidth = 1
 sem = 68
-marker_size = 3
+
 
 # initialise figure
 fig = plt.figure()
@@ -482,6 +518,77 @@ for marker, type_axis in zip(marker_types, med_count_axes):
         )
         legend = curr_ax.legend()
         legend.remove()
+        
+        # Tidy axis
+        if marker == marker_types[1]:
+            curr_ax.set_ylim(mean_ylim)
+        curr_ax.tick_params(
+            axis='both',
+            which='major',
+            labelsize=tick_label_size
+        )
+        curr_ax.set(xlabel="")
+        if data_type == data_types[0]:
+            curr_ax.set_ylabel(
+                mean_count_ylabel_dict[marker],
+                fontsize=ylabelsize
+            )
+        if data_type == data_types[1]:
+            curr_ax.set_ylabel("")
+        curr_panel = count_med_panels[marker][data_type]
+        curr_ax.text(
+            panel_xpos,
+            panel_ypos,
+            curr_panel,
+            transform=curr_ax.transAxes,
+            fontsize=panel_size
+        )
+        
+        # Significance lines
+        
+        # Get y vals, xvals where sig, plot
+        ycoor_disrupt = aplot.sig_line_coord_get(
+            curr_ax=curr_ax,
+            sig_line_ylevel=sig_ylevel_disrupt
+        )
+        ycoord_recovery = aplot.sig_line_coord_get(
+            curr_ax=curr_ax,
+            sig_line_ylevel=sig_ylevel_recovery
+        )
+        
+        # xvals needs dict to lookup
+        xtick_dict = aplot.get_xtick_dict(
+            curr_ax=curr_ax
+        )
+        curr_ph_df = ph_med_count_dict[data_type][marker]
+        disrupt_xvals = aplot.sig_locs_get(
+            df=curr_ph_df,
+            index_level2val=0
+        )
+        recovery_xvlas = aplot.sig_locs_get(
+            df=curr_ph_df,
+            index_level2val=1
+        )
+        aplot.draw_sighlines(
+            yval=ycoor_disrupt,
+            sig_list=disrupt_xvals,
+            label_loc_dict=xtick_dict,
+            minus_val=minus_sigval,
+            plus_val=0,
+            curr_ax=curr_ax,
+            color="C1"
+        )
+        aplot.draw_sighlines(
+            yval=ycoord_recovery,
+            sig_list=recovery_xvlas,
+            label_loc_dict=xtick_dict,
+            minus_val=minus_sigval,
+            plus_val=plus_sigval,
+            curr_ax=curr_ax,
+            color="C2"
+        )
+        
+        
 
 # Plot histograms
 # Create axes
@@ -490,7 +597,8 @@ hist_grid = gs.GridSpec(
     ncols=2,
     figure=fig,
     top=0.55,
-    hspace=0
+    bottom=0.1,
+    hspace=0,
 )
 hist_axes = [plt.subplot(x) for x in hist_grid]
 act_axes = hist_axes[::2]
@@ -510,17 +618,17 @@ for col_no, data_type in enumerate(data_types):
         
 
         # select the data and axis
-        curr_ax = curr_ax_list[row_no]
+        curr_hist_ax = curr_ax_list[row_no]
         curr_data = curr_data_type.query("%s == '%s'"%(condition_col,
                                                        condition))
         
-        sns.pointplot(
+        sns.barplot(
             x=duration_col,
             y=no_ep_col,
             hue=section_col,
             data=curr_data,
-            ax=curr_ax,
-            join=False,
+            ax=curr_hist_ax,
+            # join=False,
             dodge=dodge,
             capsize=capsize,
             errwidth=errwidth,
@@ -531,27 +639,127 @@ for col_no, data_type in enumerate(data_types):
             y=no_ep_col,
             hue=section_col,
             data=curr_data,
-            ax=curr_ax,
+            ax=curr_hist_ax,
             dodge=dodge,
-            size=marker_size
+            size=marker_size,
+            color='k'
         )
-        curr_legend = curr_ax.legend()
+        curr_legend = curr_hist_ax.legend()
         curr_legend.remove()
-# create the legend
-# legend_lines = [Line2D([0], [0], color='w', alpha=0.8,
-#                        marker='o', markersize=10, label="Baseline",
-#                        markerfacecolor='0.5'),
-#                 Line2D([0], [0], color='w', alpha=0.4, marker='o',
-#                        markersize=10, label="Disrupted",
-#                        markerfacecolor='b')]
-# fig.legend(handles=legend_lines, loc=(0.87, 0.9), fontsize=label_size,
-#            frameon=False)
-# fig.legend(handles=legend_lines, loc=(0.87, 0.42), fontsize=label_size,
-#            frameon=False)
-#
-# fig.suptitle("Bout duration under different disrupting light cycles")
-# fig.set_size_inches(8.27, 11.69)
+        
+        # Tidy axis
+        if data_type == data_types[0]:
+            curr_hist_ax.set_ylim(act_hist_ylim)
+            curr_hist_ax.set_ylabel(
+                conditions[row_no],
+                fontsize=ylabelsize
+            )
+        if data_type == data_types[1]:
+            curr_hist_ax.set_ylim(sleep_hist_ylim)
+            curr_hist_ax.set_ylabel("")
+        curr_hist_ax.tick_params(
+            axis='both',
+            which='major',
+            labelsize=tick_label_size
+        )
+        curr_hist_ax.set_xlabel(
+            "Episode Duration, minutes",
+            fontsize=xlabelsize
+        )
+        curr_panel = hist_panels[col_no][row_no]
+        curr_hist_ax.text(
+            panel_xpos,
+            panel_ypos,
+            curr_panel,
+            transform=curr_hist_ax.transAxes,
+            fontsize=panel_size
+        )
+        
+        
+        # Significance
+        # Get y vals, xvals where sig, plot
+        ycoor_disrupt = aplot.sig_line_coord_get(
+            curr_ax=curr_hist_ax,
+            sig_line_ylevel=sig_ylevel_disrupt
+        )
+        ycoord_recovery = aplot.sig_line_coord_get(
+            curr_ax=curr_hist_ax,
+            sig_line_ylevel=sig_ylevel_recovery
+        )
+        
+        # xvals needs dict to lookup
+        xtick_dict = aplot.get_xtick_dict(
+            curr_ax=curr_hist_ax
+        )
+        curr_ph_df = hist_ph.loc[idx[data_type, condition], :]
+        disrupt_xvals = aplot.sig_locs_get(
+            df=curr_ph_df,
+            index_level2val=0
+        )
+        recovery_xvlas = aplot.sig_locs_get(
+            df=curr_ph_df,
+            index_level2val=1
+        )
+        aplot.draw_sighlines(
+            yval=ycoor_disrupt,
+            sig_list=disrupt_xvals,
+            label_loc_dict=xtick_dict,
+            minus_val=minus_sigval,
+            plus_val=0,
+            curr_ax=curr_hist_ax,
+            color="C1"
+        )
+        aplot.draw_sighlines(
+            yval=ycoord_recovery,
+            sig_list=recovery_xvlas,
+            label_loc_dict=xtick_dict,
+            minus_val=minus_sigval,
+            plus_val=plus_sigval,
+            curr_ax=curr_hist_ax,
+            color="C2"
+        )
 
+# Set titles around plot
+fig.suptitle(
+    "Effect of light conditions on episodes of activity and sleep"
+)
+type_label_xval = 0.5
+type_label_yval = 1.1
+col_title_size = ylabelsize
+fig.text(
+    type_label_xval,
+    type_label_yval,
+    "Activity",
+    transform=count_axes[0].transAxes,
+    fontsize=col_title_size,
+    ha='center'
+)
+fig.text(
+    type_label_xval,
+    type_label_yval,
+    "Sleep",
+    transform=count_axes[1].transAxes,
+    fontsize=col_title_size,
+    ha='center'
+)
+fig.text(
+    0.02,
+    0.75,
+    "Percentage of baseline mean, mean +/-SEM",
+    rotation=90,
+    fontsize=ylabelsize,
+    va='center'
+)
+fig.text(
+    0.02,
+    0.325,
+    "Number of episodes, mean +/-SEM",
+    rotation=90,
+    fontsize=ylabelsize,
+    va='center'
+)
+
+fig.set_size_inches(8.27, 11.69)
 plt.savefig(SAVE_FIG, dpi=600)
 
 plt.close('all')
