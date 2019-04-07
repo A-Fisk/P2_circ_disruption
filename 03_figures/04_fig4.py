@@ -439,6 +439,7 @@ tick_label_size = 8
 panel_size = 8
 panel_xpos = -0.17
 panel_ypos = 0.9
+marker_size = 3
 mean_count_ylabel_dict = dict(
     zip(
         marker_types,
@@ -718,6 +719,14 @@ for col_no, data_type in enumerate(data_types):
             curr_ax=curr_hist_ax,
             color="C2"
         )
+# set the legend
+handles, legends = curr_ax.get_legend_handles_labels()
+fig.legend(
+    handles=handles[:3],
+    loc=(0.87, 0.91),
+    fontsize=label_size,
+    markerscale=0.5
+)
 
 # Set titles around plot
 fig.suptitle(
