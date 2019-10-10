@@ -689,6 +689,11 @@ for col_no, data_list in enumerate(data_type_list):
             fontsize=panelsize
         )
 
+        # add in vertical lines 
+        curr_ax.axvline(0.5, color='k', ls="--")
+        curr_ax.axvline(1.5, color='k', ls="--")
+        curr_ax.axvline(2.5, color='k', ls="--")
+
         # add in statistical sig bars
 
         # get y value for sig line

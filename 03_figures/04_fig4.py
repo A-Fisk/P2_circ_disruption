@@ -520,6 +520,12 @@ for marker, type_axis in zip(marker_types, med_count_axes):
         legend = curr_ax.legend()
         legend.remove()
         
+        # add in vertical lines 
+        curr_ax.axvline(0.5, color='k', ls="--")
+        curr_ax.axvline(1.5, color='k', ls="--")
+        curr_ax.axvline(2.5, color='k', ls="--")
+
+
         # Tidy axis
         if marker == marker_types[1]:
             curr_ax.set_ylim(mean_ylim)

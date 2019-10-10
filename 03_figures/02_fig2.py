@@ -240,7 +240,7 @@ sig_val = 0.05
 sig_indexlevel_ph_df = 0
 sig_yvals = [300, 175]
 p_val_col = "p-tukey"
-xfmt = mdates.DateFormatter("%H:%M:%S")
+xfmt = mdates.DateFormatter("%H:%M")
 hspace = 0.5
 xfontsize = 8
 panels = [["A", "B", "C", "D"], ["E", "F", "G", "H"]]
@@ -311,13 +311,18 @@ for col, df in enumerate([activity_mean, sleep_mean]):
             )
 
             # Set the background to indicate lights
-            curr_ax.fill_between(
-                dark_index,
-                # mean_data.between_time("12:00:00", "23:59:00").index,
-                500,
-                alpha=0.2,
-                color='0.5'
+            curr_ax.axvline(
+                dark_index[0],
+                ls="--",
+                color='k'
             )
+            # curr_ax.fill_between(
+            #     dark_index,
+            #     # mean_data.between_time("12:00:00", "23:59:00").index,
+            #     500,
+            #     alpha=0.2,
+            #     color='0.5'
+            # )
 
         # Fix the axes
         ylim = [0, 350]

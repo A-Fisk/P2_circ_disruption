@@ -1,7 +1,5 @@
 # Figure 1 - representative actograms of each condition
 
-import actiPy.actogram_plot as aplot
-import actiPy.preprocessing as prep
 import pathlib
 import pandas as pd
 import numpy as np
@@ -12,6 +10,8 @@ import matplotlib.dates as mdates
 import sys
 sys.path.insert(0, "/Users/angusfisk/Documents/01_PhD_files/"
                 "07_python_package/actiPy")
+import actiPy.actogram_plot as aplot
+import actiPy.preprocessing as prep
 
 # define constants
 index_cols = [0, 1]
@@ -72,12 +72,13 @@ actogram_kwargs = {
     "drop_level": True,
     "set_file_title": False,
     "linewidth": 0.1,
-    "day_label_size": 6,
+    "day_label_size": 8,
     "ylabelpos": (0.05, 0.5),
     "xlabelpos": (0.5, 0.13),
-    "title": "Double plotted actograms of activity and sleep"
+    "title": "Double plotted actograms of activity and sleep",
+    "xlabel": "Time, ZT"
 }
-timelabelsize = 5
+timelabelsize = 8
 
 # initialise figure
 fig = plt.figure()
